@@ -1,9 +1,9 @@
-import { PetAI, PetAIState, AIStateInfo, AIEmotion, AIDecision } from '@/types/ai'
+import { PetAI, AIStateInfo } from '@/types/ai'
 import { AIStateDisplay } from './AIStateDisplay'
 import { AIEmotionDisplay } from './AIEmotionDisplay'
 import { AIBehaviorIndicators } from './AIBehaviorIndicators'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface AIDebugViewProps {
   ai: PetAI
@@ -14,6 +14,13 @@ interface AIDebugViewProps {
 
 export function AIDebugView({ ai, stateInfo, onTick, onReset }: AIDebugViewProps) {
   const [showDetails, setShowDetails] = useState(false)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    if (!showDetails) return
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [showDetails])
 
   return (
     <div className="space-y-4">
@@ -166,7 +173,7 @@ export function AIDebugView({ ai, stateInfo, onTick, onReset }: AIDebugViewProps
             <div className="flex items-center justify-between">
               <span className="text-white/60 text-sm">Time Since Last Tick</span>
               <span className="text-white text-sm">
-                {((Date.now() - ai.lastTick) / 1000).toFixed(1)}s
+                {((now - ai.lastTick) / 1000).toFixed(1)}s
               </span>
             </div>
           </div>

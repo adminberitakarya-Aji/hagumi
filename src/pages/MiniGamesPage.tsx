@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMiniGameStore } from '@/features/minigames/minigameStore'
 import { useContentStore } from '@/features/content/contentStore'
 import { SceneBackground } from '@/components/layout/SceneBackground'
-import { Loading } from '@/shared/feedback/Loading'
 import type { MiniGameId, MiniGameDifficulty } from '@/features/minigames/types'
 
 // ─── Game Select Card ─────────────────────────────────
@@ -62,11 +61,11 @@ function GameCard({ gameId, onSelect }: { gameId: MiniGameId; onSelect: () => vo
 
 // ─── Sakura Catch Game ─────────────────────────────────
 
-function SakuraCatchGame({ onEnd }: { onEnd: (input: any) => void }) {
+function SakuraCatchGame() {
   const [petals, setPetals] = useState<Array<{ id: string; x: number; y: number; speed: number }>>([])
   const [caught, setCaught] = useState(0)
-  const [missed, setMissed] = useState(0)
-  const { state, updateScore } = useMiniGameStore()
+  const [, setMissed] = useState(0)
+  const { updateScore } = useMiniGameStore()
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -130,20 +129,18 @@ function SakuraCatchGame({ onEnd }: { onEnd: (input: any) => void }) {
 
 // ─── Memory Match Game ─────────────────────────────────
 
-function MemoryMatchGame({ onEnd }: { onEnd: (input: any) => void }) {
+function MemoryMatchGame() {
   const emojis = ['🌸', '🍣', '🎀', '⭐', '🌙', '💎', '🔥', '💧']
-  const [cards, setCards] = useState<Array<{ id: string; emoji: string; isFlipped: boolean; isMatched: boolean }>>([])
+  const [cards, setCards] = useState<Array<{ id: string; emoji: string; isFlipped: boolean; isMatched: boolean }>>(() => {
+    return [...emojis, ...emojis]
+      .sort(() => Math.random() - 0.5)
+      .map((emoji) => ({ id: crypto.randomUUID(), emoji, isFlipped: false, isMatched: false }))
+  })
+
   const [flipped, setFlipped] = useState<string[]>([])
   const [pairs, setPairs] = useState(0)
   const [timeUsed, setTimeUsed] = useState(0)
-  const { state, updateScore } = useMiniGameStore()
-
-  useEffect(() => {
-    const shuffled = [...emojis, ...emojis]
-      .sort(() => Math.random() - 0.5)
-      .map((emoji, i) => ({ id: crypto.randomUUID(), emoji, isFlipped: false, isMatched: false }))
-    setCards(shuffled)
-  }, [])
+  const { updateScore } = useMiniGameStore()
 
   useEffect(() => {
     const timer = setInterval(() => setTimeUsed((t) => t + 1), 1000)
@@ -203,12 +200,11 @@ function MemoryMatchGame({ onEnd }: { onEnd: (input: any) => void }) {
 
 // ─── Feeding Frenzy Game ───────────────────────────────
 
-function FeedingFrenzyGame({ onEnd }: { onEnd: (input: any) => void }) {
+function FeedingFrenzyGame() {
   const [foods, setFoods] = useState<Array<{ id: string; x: number; y: number }>>([])
   const [fed, setFed] = useState(0)
-  const [missed, setMissed] = useState(0)
   const [combo, setCombo] = useState(0)
-  const { state, updateScore } = useMiniGameStore()
+  const { updateScore } = useMiniGameStore()
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -274,20 +270,18 @@ function FeedingFrenzyGame({ onEnd }: { onEnd: (input: any) => void }) {
 
 // ─── Hide & Seek Game ───────────────────────────────────
 
-function HideSeekGame({ onEnd }: { onEnd: (input: any) => void }) {
-  const [hidingSpots, setHidingSpots] = useState<Array<{ id: string; hasPet: boolean; revealed: boolean }>>([])
-  const [found, setFound] = useState(0)
-  const [hintsUsed, setHintsUsed] = useState(0)
-  const { state, updateScore } = useMiniGameStore()
-
-  useEffect(() => {
+function HideSeekGame() {
+  const [hidingSpots, setHidingSpots] = useState<Array<{ id: string; hasPet: boolean; revealed: boolean }>>(() => {
     const spots = Array.from({ length: 9 }, (_, i) => ({
       id: crypto.randomUUID(),
       hasPet: i < 3,
       revealed: false,
     }))
-    setHidingSpots(spots.sort(() => Math.random() - 0.5))
-  }, [])
+    return spots.sort(() => Math.random() - 0.5)
+  })
+  const [found, setFound] = useState(0)
+  const [hintsUsed, setHintsUsed] = useState(0)
+  const { updateScore } = useMiniGameStore()
 
   const handleSpotClick = (id: string) => {
     const spot = hidingSpots.find((s) => s.id === id)
@@ -342,12 +336,11 @@ function HideSeekGame({ onEnd }: { onEnd: (input: any) => void }) {
 
 // ─── Pet Dance Game ─────────────────────────────────────
 
-function PetDanceGame({ onEnd }: { onEnd: (input: any) => void }) {
+function PetDanceGame() {
   const [beats, setBeats] = useState<Array<{ id: string; time: number; hit: boolean }>>([])
   const [hits, setHits] = useState(0)
-  const [misses, setMisses] = useState(0)
   const [perfectHits, setPerfectHits] = useState(0)
-  const { state, updateScore } = useMiniGameStore()
+  const { updateScore } = useMiniGameStore()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -407,15 +400,15 @@ function PetDanceGame({ onEnd }: { onEnd: (input: any) => void }) {
 function GameComponent({ gameId, onEnd }: { gameId: MiniGameId; onEnd: (input: any) => void }) {
   switch (gameId) {
     case 'sakura-catch':
-      return <SakuraCatchGame onEnd={onEnd} />
+      return <SakuraCatchGame />
     case 'memory-match':
-      return <MemoryMatchGame onEnd={onEnd} />
+      return <MemoryMatchGame />
     case 'feeding-frenzy':
-      return <FeedingFrenzyGame onEnd={onEnd} />
+      return <FeedingFrenzyGame />
     case 'hide-seek':
-      return <HideSeekGame onEnd={onEnd} />
+      return <HideSeekGame />
     case 'pet-dance':
-      return <PetDanceGame onEnd={onEnd} />
+      return <PetDanceGame />
     default:
       return null
   }
@@ -427,8 +420,9 @@ export default function MiniGamesPage() {
   const { state, startGame, endGame } = useMiniGameStore()
   const { updateProgress } = useContentStore()
   const [selectedGame, setSelectedGame] = useState<MiniGameId | null>(null)
-  const [difficulty, setDifficulty] = useState<MiniGameDifficulty>('easy')
-  const [gameInput, setGameInput] = useState<any>(null)
+  const activeGame = useMiniGameStore((s) => selectedGame ? s.getGame(selectedGame) : null)
+  const [difficulty] = useState<MiniGameDifficulty>('easy')
+  const [gameInput] = useState<any>(null)
   const [showResults, setShowResults] = useState(false)
   const [rewards, setRewards] = useState<any[]>([])
 
@@ -481,7 +475,7 @@ export default function MiniGamesPage() {
         {selectedGame && !showResults && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">{useMiniGameStore((s) => s.getGame(selectedGame))?.name}</h2>
+              <h2 className="text-lg font-bold text-white">{activeGame?.name}</h2>
               <span className="text-xs text-white/30">Score: {state.score}</span>
             </div>
             <GameComponent gameId={selectedGame} onEnd={handleEndGame} />

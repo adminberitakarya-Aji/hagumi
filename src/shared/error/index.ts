@@ -6,7 +6,8 @@
 // Components
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as ErrorFallback } from './ErrorFallback';
-export { ErrorProvider, useError, useErrorMessage, useHasError } from './ErrorContext';
+export { ErrorProvider } from './ErrorContext';
+export { useError, useErrorMessage, useHasError } from './useError';
 
 // Utilities
 export {

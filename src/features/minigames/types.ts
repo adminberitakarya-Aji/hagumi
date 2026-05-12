@@ -4,6 +4,14 @@ export type MiniGameId = 'sakura-catch' | 'memory-match' | 'feeding-frenzy' | 'h
 
 export type MiniGameDifficulty = 'easy' | 'medium' | 'hard'
 
+export type PlayerInput = 
+  | { caught: number; missed: number }
+  | { pairs: number; totalPairs: number; timeUsed: number }
+  | { fed: number; missed: number; combo: number }
+  | { found: number; total: number; hintsUsed: number }
+  | { hits: number; misses: number; perfectHits: number }
+  | Record<string, unknown>
+
 export interface MiniGame {
   id: MiniGameId
   name: string
@@ -14,7 +22,7 @@ export interface MiniGame {
   maxDifficulty: MiniGameDifficulty
   
   // Scoring
-  scoreAlgorithm: (playerInput: any) => number
+  scoreAlgorithm: (playerInput: PlayerInput) => number
   rewardTable: {
     minScore: number
     maxScore: number
@@ -61,5 +69,5 @@ export interface MiniGameState {
   score: number
   timeRemaining: number
   difficulty: MiniGameDifficulty
-  sessionData: any
+  sessionData: Record<string, unknown> | null
 }

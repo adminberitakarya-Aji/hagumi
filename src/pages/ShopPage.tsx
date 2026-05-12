@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useEconomyStore } from '@/features/economy/economyStore'
-import { useAuthStore } from '@/stores/authStore'
 import { motion, AnimatePresence } from 'framer-motion'
+import type { ShopItem } from '@/features/economy/types'
 
 export default function ShopPage() {
-  const { shopItems, balance, purchaseShopItem, isLoading } = useEconomyStore()
-  const { user } = useAuthStore()
+  const { shopItems, balance, purchaseShopItem } = useEconomyStore()
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [selectedItem, setSelectedItem] = useState<any>(null)
+  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
   const [purchaseSuccess, setPurchaseSuccess] = useState(false)
 
@@ -17,7 +16,7 @@ export default function ShopPage() {
     ? shopItems
     : shopItems.filter(item => item.category === selectedCategory)
 
-  const handlePurchase = async (item: any) => {
+  const handlePurchase = (item: ShopItem) => {
     setSelectedItem(item)
     setShowPurchaseModal(true)
   }

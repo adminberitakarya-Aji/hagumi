@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface GachaRevealProps {
@@ -15,6 +15,15 @@ const rarityColors = {
 };
 
 export const GachaReveal: React.FC<GachaRevealProps> = ({ isOpen, item, onClose }) => {
+  const particlesData = useMemo(() => {
+    return Array.from({ length: 20 }).map(() => ({
+      animateX: `${Math.random() * 100}%`,
+      animateY: `${Math.random() * 100}%`,
+      animateScale: Math.random() * 2,
+      delay: Math.random() * 2,
+    }))
+  }, [])
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -74,7 +83,7 @@ export const GachaReveal: React.FC<GachaRevealProps> = ({ isOpen, item, onClose 
 
           {/* Sparkles Particle Effect Simulation */}
           <div className="absolute inset-0 pointer-events-none">
-            {[...Array(20)].map((_, i) => (
+            {particlesData.map((data, i) => (
               <motion.div
                 key={i}
                 initial={{ 
@@ -84,12 +93,12 @@ export const GachaReveal: React.FC<GachaRevealProps> = ({ isOpen, item, onClose 
                   opacity: 1 
                 }}
                 animate={{ 
-                  x: `${Math.random() * 100}%`, 
-                  y: `${Math.random() * 100}%`,
-                  scale: Math.random() * 2,
+                  x: data.animateX, 
+                  y: data.animateY,
+                  scale: data.animateScale,
                   opacity: 0
                 }}
-                transition={{ duration: 2, repeat: Infinity, delay: Math.random() * 2 }}
+                transition={{ duration: 2, repeat: Infinity, delay: data.delay }}
                 className="absolute w-1 h-1 bg-white rounded-full"
               />
             ))}

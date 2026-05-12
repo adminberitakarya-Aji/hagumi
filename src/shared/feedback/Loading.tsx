@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/designTokens'
 
@@ -32,13 +33,21 @@ export function Loading({ size = 'md', text, className }: LoadingProps) {
 }
 
 export function LoadingSkeleton({ lines = 3, className }: { lines?: number; className?: string }) {
+  const [widths, setWidths] = useState<string[]>(() => 
+    Array.from({ length: lines }).map(() => '100%')
+  )
+
+  useEffect(() => {
+    setWidths(Array.from({ length: lines }).map(() => `${60 + Math.random() * 40}%`))
+  }, [lines])
+
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      {Array.from({ length: lines }).map((_, i) => (
+      {widths.map((width, i) => (
         <div
           key={i}
           className="h-4 rounded-full bg-white/5 animate-pulse"
-          style={{ width: `${60 + Math.random() * 40}%` }}
+          style={{ width }}
         />
       ))}
     </div>

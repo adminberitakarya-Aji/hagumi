@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
 type WeatherType = 'rain' | 'snow' | 'clear';
@@ -8,28 +8,38 @@ interface WeatherProps {
 }
 
 export const WeatherEffects: React.FC<WeatherProps> = ({ type }) => {
+  const count = type === 'rain' ? 40 : 30;
+
+  const particlesData = useMemo(() => {
+    return Array.from({ length: count }).map(() => ({
+      initialLeft: `${Math.random() * 100}%`,
+      initialOpacity: Math.random() * 0.5 + 0.2,
+      animateLeftOffset: (Math.random() - 0.5) * 10,
+      duration: type === 'rain' ? 0.8 : Math.random() * 5 + 5,
+      delay: Math.random() * 5,
+    }))
+  }, [count, type])
+
   if (type === 'clear') return null;
 
-  const count = type === 'rain' ? 40 : 30;
-  
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-[5]">
-      {[...Array(count)].map((_, i) => (
+      {particlesData.map((data, i) => (
         <motion.div
           key={i}
           initial={{ 
             top: -20, 
-            left: `${Math.random() * 100}%`,
-            opacity: Math.random() * 0.5 + 0.2
+            left: data.initialLeft,
+            opacity: data.initialOpacity
           }}
           animate={{ 
             top: "110%",
-            left: type === 'rain' ? undefined : `${(Math.random() - 0.5) * 10 + (i / count) * 100}%`
+            left: type === 'rain' ? undefined : `${data.animateLeftOffset + (i / count) * 100}%`
           }}
           transition={{ 
-            duration: type === 'rain' ? 0.8 : Math.random() * 5 + 5,
+            duration: data.duration,
             repeat: Infinity,
-            delay: Math.random() * 5,
+            delay: data.delay,
             ease: "linear"
           }}
           className={`absolute ${

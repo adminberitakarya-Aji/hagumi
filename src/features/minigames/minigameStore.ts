@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MiniGame, MiniGameId, MiniGameDifficulty, Reward, MiniGameSession, MiniGameState } from './types'
+import type { MiniGame, MiniGameId, MiniGameDifficulty, Reward, MiniGameSession, MiniGameState, PlayerInput } from './types'
 
 // ─── Mini-Game Definitions ─────────────────────────────
 
@@ -13,10 +13,11 @@ const MINI_GAMES: Record<MiniGameId, MiniGame> = {
     durationSeconds: 60,
     minDifficulty: 'easy',
     maxDifficulty: 'hard',
-    scoreAlgorithm: (input: { caught: number; missed: number }) => {
-      const total = input.caught + input.missed
+    scoreAlgorithm: (input: PlayerInput) => {
+      const p = input as { caught: number; missed: number }
+      const total = (p.caught || 0) + (p.missed || 0)
       if (total === 0) return 0
-      const accuracy = input.caught / total
+      const accuracy = (p.caught || 0) / total
       return Math.round(accuracy * 1000)
     },
     rewardTable: [
@@ -37,9 +38,10 @@ const MINI_GAMES: Record<MiniGameId, MiniGame> = {
     durationSeconds: 90,
     minDifficulty: 'easy',
     maxDifficulty: 'hard',
-    scoreAlgorithm: (input: { pairs: number; totalPairs: number; timeUsed: number }) => {
-      const pairScore = (input.pairs / input.totalPairs) * 700
-      const timeBonus = Math.max(0, 300 - input.timeUsed)
+    scoreAlgorithm: (input: PlayerInput) => {
+      const p = input as { pairs: number; totalPairs: number; timeUsed: number }
+      const pairScore = ((p.pairs || 0) / (p.totalPairs || 8)) * 700
+      const timeBonus = Math.max(0, 300 - (p.timeUsed || 0))
       return Math.round(pairScore + timeBonus)
     },
     rewardTable: [
@@ -60,10 +62,11 @@ const MINI_GAMES: Record<MiniGameId, MiniGame> = {
     durationSeconds: 45,
     minDifficulty: 'easy',
     maxDifficulty: 'hard',
-    scoreAlgorithm: (input: { fed: number; missed: number; combo: number }) => {
-      const baseScore = input.fed * 50
-      const comboBonus = input.combo * 20
-      const penalty = input.missed * 10
+    scoreAlgorithm: (input: PlayerInput) => {
+      const p = input as { fed: number; missed: number; combo: number }
+      const baseScore = (p.fed || 0) * 50
+      const comboBonus = (p.combo || 0) * 20
+      const penalty = (p.missed || 0) * 10
       return Math.max(0, baseScore + comboBonus - penalty)
     },
     rewardTable: [
@@ -84,9 +87,10 @@ const MINI_GAMES: Record<MiniGameId, MiniGame> = {
     durationSeconds: 120,
     minDifficulty: 'easy',
     maxDifficulty: 'hard',
-    scoreAlgorithm: (input: { found: number; total: number; hintsUsed: number }) => {
-      const foundScore = (input.found / input.total) * 600
-      const hintPenalty = input.hintsUsed * 50
+    scoreAlgorithm: (input: PlayerInput) => {
+      const p = input as { found: number; total: number; hintsUsed: number }
+      const foundScore = ((p.found || 0) / (p.total || 3)) * 600
+      const hintPenalty = (p.hintsUsed || 0) * 50
       return Math.max(0, foundScore - hintPenalty)
     },
     rewardTable: [
@@ -107,11 +111,12 @@ const MINI_GAMES: Record<MiniGameId, MiniGame> = {
     durationSeconds: 90,
     minDifficulty: 'easy',
     maxDifficulty: 'hard',
-    scoreAlgorithm: (input: { hits: number; misses: number; perfectHits: number }) => {
-      const total = input.hits + input.misses
+    scoreAlgorithm: (input: PlayerInput) => {
+      const p = input as { hits: number; misses: number; perfectHits: number }
+      const total = (p.hits || 0) + (p.misses || 0)
       if (total === 0) return 0
-      const accuracy = input.hits / total
-      const perfectBonus = input.perfectHits * 30
+      const accuracy = (p.hits || 0) / total
+      const perfectBonus = (p.perfectHits || 0) * 30
       return Math.round(accuracy * 700 + perfectBonus)
     },
     rewardTable: [
@@ -137,9 +142,9 @@ interface MiniGameStore {
   // Actions
   getGame: (id: MiniGameId) => MiniGame | undefined
   startGame: (gameId: MiniGameId, difficulty: MiniGameDifficulty) => void
-  endGame: (playerInput: any) => Reward[]
+  endGame: (playerInput: PlayerInput) => Reward[]
   updateScore: (score: number) => void
-  updateSessionData: (data: any) => void
+  updateSessionData: (data: Record<string, unknown>) => void
   getCooldownRemaining: (gameId: MiniGameId) => number
   canPlayGame: (gameId: MiniGameId) => boolean
   getHighScores: (gameId: MiniGameId) => number[]

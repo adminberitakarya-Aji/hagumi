@@ -15,7 +15,7 @@ function generateSystemPrompt(pet: Pet) {
   const { hunger, energy, mood } = pet.stats
   const personality = pet.genetics.personality || 'playful'
   
-  let stateDesc = []
+  const stateDesc = []
   if (hunger < 30) stateDesc.push("kelaparan (butuh makanan)")
   else if (hunger > 80) stateDesc.push("kenyang")
   
@@ -93,7 +93,7 @@ export function ChatModal({ pet, onClose }: Props) {
         ]
       })
 
-      const reply = (aiResponse.content[0] as any).text || "*tersenyum*"
+      const reply = 'text' in aiResponse.content[0] ? aiResponse.content[0].text : "*tersenyum*"
       
       setMessages(prev => [...prev, { role: 'assistant', text: reply }])
       setLoading(false)

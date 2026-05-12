@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { AppError, ErrorCode, createError, logError, getUserFriendlyMessage } from './errorHandler';
+import React, { createContext, useState, useCallback, ReactNode } from 'react';
+import { AppError, ErrorCode, createError, logError } from './errorHandler';
 
-interface ErrorContextType {
+export interface ErrorContextType {
   error: AppError | null;
   setError: (error: AppError | null) => void;
   clearError: () => void;
@@ -43,33 +43,6 @@ export const ErrorProvider: React.FC<ErrorProviderProps> = ({ children }) => {
       {children}
     </ErrorContext.Provider>
   );
-};
-
-/**
- * Hook to use the error context
- */
-export const useError = (): ErrorContextType => {
-  const context = useContext(ErrorContext);
-  if (context === undefined) {
-    throw new Error('useError must be used within an ErrorProvider');
-  }
-  return context;
-};
-
-/**
- * Hook to get user-friendly error message
- */
-export const useErrorMessage = (): string => {
-  const { error } = useError();
-  return error ? getUserFriendlyMessage(error) : '';
-};
-
-/**
- * Hook to check if there's an error
- */
-export const useHasError = (): boolean => {
-  const { error } = useError();
-  return error !== null;
 };
 
 export default ErrorContext;

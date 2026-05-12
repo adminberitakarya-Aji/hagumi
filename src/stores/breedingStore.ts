@@ -22,7 +22,7 @@ interface BreedingStore {
   sendBreedRequest: (myPetId: string, targetPetId: string) => Promise<void>
 }
 
-export const useBreedingStore = create<BreedingStore>((set, get) => ({
+export const useBreedingStore = create<BreedingStore>((set) => ({
   publicAdultPets: [],
   isLoading: false,
   error: null,

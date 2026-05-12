@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface LevelUpModalProps {
@@ -8,6 +8,15 @@ interface LevelUpModalProps {
 }
 
 export const LevelUpModal: React.FC<LevelUpModalProps> = ({ isOpen, level, onClose }) => {
+  const confettiData = useMemo(() => {
+    return Array.from({ length: 30 }).map(() => ({
+      initialLeft: `${Math.random() * 100}%`,
+      animateLeftOffset: (Math.random() - 0.5) * 20,
+      duration: Math.random() * 2 + 2,
+      delay: Math.random() * 2,
+    }))
+  }, [])
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -56,19 +65,19 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ isOpen, level, onClo
 
           {/* Background Confetti simulation */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {[...Array(30)].map((_, i) => (
+            {confettiData.map((data, i) => (
               <motion.div
                 key={i}
-                initial={{ top: -20, left: `${Math.random() * 100}%`, rotate: 0 }}
+                initial={{ top: -20, left: data.initialLeft, rotate: 0 }}
                 animate={{ 
                   top: "120%", 
-                  left: `${(Math.random() - 0.5) * 20 + i * 3.3}%`,
+                  left: `${data.animateLeftOffset + i * 3.3}%`,
                   rotate: 360 
                 }}
                 transition={{ 
-                  duration: Math.random() * 2 + 2, 
+                  duration: data.duration, 
                   repeat: Infinity,
-                  delay: Math.random() * 2 
+                  delay: data.delay 
                 }}
                 className={`absolute w-3 h-3 rounded-sm ${
                   ['bg-pink-400', 'bg-yellow-400', 'bg-cyan-400', 'bg-purple-400'][i % 4]

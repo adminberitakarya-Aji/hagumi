@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GameEngine } from '@/lib/gameEngine'
 import type { GameType } from '@/types/game'
@@ -32,20 +32,30 @@ export function SakuraCatch() {
   const SPAWN_INTERVAL = 800 // ms
   const lastSpawnRef = useRef(0)
 
-  // Start game
-  const startGame = () => {
-    gameEngine.start()
-    setGameState('playing')
-    setPetals([])
-    setScore(0)
-    setCombo(0)
-    setTimeRemaining(60)
-    lastSpawnRef.current = Date.now()
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }
+  // Spawn a new petal
+  const spawnPetal = useCallback(() => {
+    const id = petalIdRef.current++
+    const size = 30 + Math.random() * 20
+    const speed = 0.5 + Math.random() * 0.5
+    
+    setPetals(prev => [
+      ...prev,
+      {
+        id,
+        x: Math.random() * 80 + 10, // 10-90% of screen width
+        y: -size,
+        speed,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 5,
+        size,
+        color: PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)],
+        caught: false,
+      },
+    ])
+  }, [PETAL_COLORS])
 
   // Game loop
-  const gameLoop = () => {
+  const gameLoop = useCallback(() => {
     if (gameState !== 'playing') return
 
     const now = Date.now()
@@ -79,39 +89,29 @@ export function SakuraCatch() {
     })
 
     // Update time
-    const newTimeRemaining = Math.max(0, timeRemaining - 1/60)
-    setTimeRemaining(newTimeRemaining)
-
-    // Check game over
-    if (newTimeRemaining <= 0) {
-      endGame()
-      return
-    }
+    setTimeRemaining(prev => {
+      const next = Math.max(0, prev - 1/60)
+      if (next <= 0) {
+        return 0
+      }
+      return next
+    })
 
     gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }
+  }, [gameState, spawnPetal])
 
-  // Spawn a new petal
-  const spawnPetal = () => {
-    const id = petalIdRef.current++
-    const size = 30 + Math.random() * 20
-    const speed = 0.5 + Math.random() * 0.5
-    
-    setPetals(prev => [
-      ...prev,
-      {
-        id,
-        x: Math.random() * 80 + 10, // 10-90% of screen width
-        y: -size,
-        speed,
-        rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 5,
-        size,
-        color: PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)],
-        caught: false,
-      },
-    ])
-  }
+  // Start game
+  const startGame = useCallback(() => {
+    gameEngine.start()
+    setGameState('playing')
+    setPetals([])
+    setScore(0)
+    setCombo(0)
+    setTimeRemaining(60)
+    lastSpawnRef.current = Date.now()
+    gameLoopRef.current = requestAnimationFrame(gameLoop)
+  }, [gameEngine, gameLoop])
+
 
   // Catch a petal
   const catchPetal = (petalId: number) => {
@@ -129,14 +129,14 @@ export function SakuraCatch() {
   }
 
   // End game
-  const endGame = () => {
+  const endGame = useCallback(() => {
     if (gameLoopRef.current) {
       cancelAnimationFrame(gameLoopRef.current)
     }
     
     gameEngine.end()
     setGameState(score > 0 ? 'victory' : 'gameover')
-  }
+  }, [gameEngine, score])
 
   // Pause game
   const pauseGame = () => {
@@ -148,12 +148,19 @@ export function SakuraCatch() {
   }
 
   // Resume game
-  const resumeGame = () => {
+  const resumeGame = useCallback(() => {
     gameEngine.resume()
     setGameState('playing')
     lastSpawnRef.current = Date.now()
     gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }
+  }, [gameEngine, gameLoop])
+
+  // Game over observer
+  useEffect(() => {
+    if (timeRemaining <= 0 && gameState === 'playing') {
+      endGame()
+    }
+  }, [timeRemaining, gameState, endGame])
 
   // Cleanup on unmount
   useEffect(() => {

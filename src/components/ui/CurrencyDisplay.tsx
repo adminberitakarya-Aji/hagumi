@@ -15,8 +15,11 @@ export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
   const [displayValue, setDisplayValue] = useState(value);
   const [isPopping, setIsPopping] = useState(false);
 
+  const prevValueRef = useRef(value);
+
   useEffect(() => {
-    if (value !== displayValue) {
+    if (value !== prevValueRef.current) {
+      prevValueRef.current = value;
       setIsPopping(true);
       const timer = setTimeout(() => setIsPopping(false), 300);
       

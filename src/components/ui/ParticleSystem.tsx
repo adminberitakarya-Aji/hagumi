@@ -21,9 +21,12 @@ export const ParticleSystem = ({ trigger }: { trigger: number }) => {
     setParticles(prev => [...prev, ...newParticles]);
   }, []);
 
+  const lastTriggerRef = React.useRef(trigger);
+
   useEffect(() => {
-    if (trigger > 0) {
+    if (trigger > lastTriggerRef.current) {
       spawnParticles();
+      lastTriggerRef.current = trigger;
     }
   }, [trigger, spawnParticles]);
 

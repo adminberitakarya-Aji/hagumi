@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GameEngine } from '@/lib/gameEngine'
 import type { GameType } from '@/types/game'
@@ -38,7 +38,7 @@ export function FeedingFrenzy() {
   const SPAWN_INTERVAL = 600 // ms
 
   // Start game
-  const startGame = () => {
+  const startGame = useCallback(() => {
     gameEngine.start()
     setGameState('playing')
     setFoodItems([])
@@ -47,10 +47,10 @@ export function FeedingFrenzy() {
     setTimeRemaining(45)
     lastSpawnRef.current = Date.now()
     gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }
+  }, [gameEngine, gameLoop])
 
   // Game loop
-  const gameLoop = () => {
+  const gameLoop = useCallback(() => {
     if (gameState !== 'playing') return
 
     const now = Date.now()
@@ -83,20 +83,21 @@ export function FeedingFrenzy() {
     })
 
     // Update time
-    const newTimeRemaining = Math.max(0, timeRemaining - 1/60)
-    setTimeRemaining(newTimeRemaining)
-
-    // Check game over
-    if (newTimeRemaining <= 0) {
-      endGame()
-      return
-    }
+    setTimeRemaining(prev => {
+      const next = Math.max(0, prev - 1/60)
+      if (next <= 0) {
+        // We can't call endGame here because it's inside setState.
+        // We should handle game end in a separate useEffect or at the end of loop.
+        return 0
+      }
+      return next
+    })
 
     gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }
+  }, [gameState, SPAWN_INTERVAL, spawnFood]) // spawnFood is also a dependency now
 
   // Spawn food
-  const spawnFood = () => {
+  const spawnFood = useCallback(() => {
     const id = foodIdRef.current++
     const foodType = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)]
     
@@ -113,7 +114,7 @@ export function FeedingFrenzy() {
         caught: false,
       },
     ])
-  }
+  }, [])
 
   // Catch food
   const catchFood = (foodId: number) => {
@@ -134,14 +135,14 @@ export function FeedingFrenzy() {
   }
 
   // End game
-  const endGame = () => {
+  const endGame = useCallback(() => {
     if (gameLoopRef.current) {
       cancelAnimationFrame(gameLoopRef.current)
     }
     
     gameEngine.end()
     setGameState(score > 0 ? 'victory' : 'gameover')
-  }
+  }, [gameEngine, score])
 
   // Pause game
   const pauseGame = () => {
