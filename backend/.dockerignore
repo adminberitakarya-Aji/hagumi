@@ -1,0 +1,20 @@
+# Ignore local build artifacts
+*.exe
+*.log
+main
+
+# Ignore environment variables
+.env
+.env.*
+
+# Ignore test and temporary files
+*.test
+*.out
+
+# Ignore documentation
+docs/
+README.md
+
+# OS specific files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hagumi-global-ingress
+  annotations:
+    # Contoh integrasi dengan Cloudflare Global Load Balancer
+    external-dns.alpha.kubernetes.io/hostname: "hagumi.app, api.hagumi.app"
+    cloud.google.com/load-balancer-type: "External"
+spec:
+  rules:
+  - host: hagumi.app
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hagumi-frontend-svc
+            port:
+              number: 80
+---
+# Konfigurasi Region-Specific Environment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hagumi-region-config
+  labels:
+    region: asia-southeast1
+data:
+  DB_READ_REPLICA_URL: "postgres://replica-asia.supabase.co:5432/postgres"
+  REDIS_REGION: "sg"

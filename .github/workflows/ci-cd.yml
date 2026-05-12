@@ -1,0 +1,87 @@
+name: Hagumi CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+  GO_VERSION: '1.22'
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1: Frontend - Lint, TypeCheck & Test
+  # ─────────────────────────────────────────────
+  frontend:
+    name: 🌐 Frontend (React)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  # ─────────────────────────────────────────────
+  # JOB 2: Backend - Lint & Test
+  # ─────────────────────────────────────────────
+  backend:
+    name: ⚙️ Backend (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Install Dependencies
+        run: go mod download
+        working-directory: ./backend
+
+      - name: Run Tests
+        run: go test -v ./...
+        working-directory: ./backend
+
+  # ─────────────────────────────────────────────
+  # JOB 3: Containerization (Docker)
+  # ─────────────────────────────────────────────
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: actions/setup-buildx-action@v3
+
+      - name: Build Backend Image
+        run: |
+          docker build -t hagumi-backend:latest .
+        # Note: In production, you would push to a registry (GHCR/DockerHub)
