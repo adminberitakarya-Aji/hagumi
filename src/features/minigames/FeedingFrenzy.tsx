@@ -31,7 +31,7 @@ export function FeedingFrenzy() {
   const [combo, setCombo] = useState(0)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover' | 'victory'>('menu')
   const [timeRemaining, setTimeRemaining] = useState(45)
-  const gameLoopRef = useRef<number>()
+  const gameLoopRef = useRef<number>(0)
   const foodIdRef = useRef(0)
   const lastSpawnRef = useRef(0)
 

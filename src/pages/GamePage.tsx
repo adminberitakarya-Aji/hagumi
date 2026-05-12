@@ -12,7 +12,7 @@ import { BottomNav } from '@/components/layout/BottomNav'
 import { SideNav } from '@/components/layout/SideNav'
 import { ChatModal } from '@/components/chat/ChatModal'
 import { GamesModal } from '@/components/ui/GamesModal'
-import { AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { ParticleSystem } from '@/components/ui/ParticleSystem'
 import { LevelUpModal } from '@/components/ui/LevelUpModal'

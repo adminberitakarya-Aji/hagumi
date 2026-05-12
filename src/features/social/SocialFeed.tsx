@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { motion as motion } from 'framer-motion'
+import { supabase } from '@/lib/supabase'
 import { SceneBackground } from '@/components/layout/SceneBackground'
 import { useSocialStore } from '@/features/social/socialStore'
 import type { ChatMessage } from '@/features/social/types'
@@ -155,7 +155,7 @@ export function SocialFeed() {
 
         {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 bg-white/5 rounded-2xl p-1">
-          {['recent', 'trending', 'popular'].map((f) => (
+          {(['recent', 'trending', 'popular'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -210,7 +210,7 @@ export function SocialFeed() {
 
                     {/* Tags */}
                     <div className="flex flex-wrap gap-2 mb-3">
-                      {post.tags.map((tag, index) => (
+                      {post.tags.map((tag: string, index: number) => (
                         <span
                           key={index}
                           className="px-2 py-1 rounded-full bg-white/10 text-white/60 text-xs"

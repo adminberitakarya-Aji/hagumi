@@ -4,17 +4,33 @@ import { Pet } from '@/types'
 describe('petStore', () => {
   const mockPet: Pet = {
     id: 'pet-1',
+    userId: 'user-1',
     name: 'Hagumi',
-    type: 'original',
+    gender: 'female',
     stage: 'egg',
     dayAge: 0,
+    totalInteractions: 0,
+    genetics: {
+      color: '#FFB7C5',
+      colorName: 'Sakura Pink',
+      personality: 'sweet',
+      baseHungerRate: 1.0,
+      baseMoodRate: 1.0,
+      baseEnergyRate: 1.0,
+      growthSpeed: 1.0
+    },
     stats: {
       hunger: 50,
       mood: 50,
       energy: 50,
-      health: 100
+      health: 100,
+      growth: 0
     },
-    ownerId: 'user-1',
+    lastFed: new Date().toISOString(),
+    lastPlayed: new Date().toISOString(),
+    lastRested: new Date().toISOString(),
+    lastCleaned: new Date().toISOString(),
+    bornAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }

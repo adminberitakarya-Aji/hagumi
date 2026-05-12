@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Modal } from './Modal'
+import { Modal } from '../ui/Modal'
 import { Pet } from '@/types'
 import { motion } from 'framer-motion'
 import Anthropic from '@anthropic-ai/sdk'

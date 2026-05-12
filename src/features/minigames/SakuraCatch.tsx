@@ -25,7 +25,7 @@ export function SakuraCatch() {
   const [combo, setCombo] = useState(0)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover' | 'victory'>('menu')
   const [timeRemaining, setTimeRemaining] = useState(60)
-  const gameLoopRef = useRef<number>()
+  const gameLoopRef = useRef<number>(0)
   const petalIdRef = useRef(0)
 
   const PETAL_COLORS = ['#FFB7C5', '#FF69B4', '#FFC0CB', '#FFD1DC', '#FFE4E1']

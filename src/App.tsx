@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { ErrorBoundary } from '@/shared/error/ErrorBoundary'
-import { ErrorFallback } from '@/shared/error/ErrorFallback'
+import ErrorBoundary from '@/shared/error/ErrorBoundary'
+import ErrorFallback from '@/shared/error/ErrorFallback'
 
 // Eagerly load LandingPage since it's the first thing users see
 import LandingPage from '@/pages/LandingPage'

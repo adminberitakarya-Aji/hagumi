@@ -54,14 +54,14 @@ export interface GachaPool {
   costCoins: number
   currency: 'gems' | 'coins'
   isActive: boolean
-  startDate: string
-  endDate: string
+  startDate?: string
+  endDate?: string
 }
 
 export interface GachaItem {
   id: string
   name: string
-  type: 'pet' | 'accessory' | 'decoration' | 'cosmetic'
+  type: 'pet' | 'accessory' | 'decoration' | 'cosmetic' | 'item' | 'food'
   rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
   probability: number // 0-1
   imageUrl?: string

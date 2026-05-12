@@ -2,8 +2,8 @@ import React from 'react';
 import { Button } from '../ui';
 
 interface ErrorFallbackProps {
-  error: Error | null;
-  errorInfo: React.ErrorInfo | null;
+  error?: Error | null;
+  errorInfo?: React.ErrorInfo | null;
   onReset?: () => void;
 }
 

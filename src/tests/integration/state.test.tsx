@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 
 // Mock stores with actual implementations
-const mockPetStore = {
+const mockPetStore: any = {
   pets: new Map(),
   currentPet: null,
   addPet: jest.fn((pet: any) => {
@@ -22,7 +22,7 @@ const mockPetStore = {
   getCurrentPet: jest.fn(() => mockPetStore.currentPet),
 };
 
-const mockAuthStore = {
+const mockAuthStore: any = {
   user: null,
   isAuthenticated: false,
   login: jest.fn((user: any) => {

@@ -314,3 +314,48 @@ export const formatErrors = (validation: ValidationResult): Record<string, strin
   
   return formatted;
 };
+
+/**
+ * User ID validation (UUID)
+ */
+export const validateUserID = (id: string): ValidationResult => {
+  const errors: ValidationError[] = [];
+  
+  if (!id) {
+    errors.push({ field: 'userId', message: 'User ID is required' });
+    return { valid: false, errors };
+  }
+  
+  // UUID v4 format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    errors.push({ field: 'userId', message: 'Invalid User ID format' });
+  }
+  
+  return { valid: errors.length === 0, errors };
+};
+
+/**
+ * Pet stats validation
+ */
+export const validateStats = (
+  hunger: number,
+  mood: number,
+  energy: number,
+  health: number
+): ValidationResult => {
+  const errors: ValidationError[] = [];
+  
+  const check = (val: number, field: string) => {
+    if (val < 0 || val > 100) {
+      errors.push({ field, message: `${field} must be between 0 and 100` });
+    }
+  };
+  
+  check(hunger, 'hunger');
+  check(mood, 'mood');
+  check(energy, 'energy');
+  check(health, 'health');
+  
+  return { valid: errors.length === 0, errors };
+};
