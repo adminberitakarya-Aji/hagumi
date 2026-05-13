@@ -37,66 +37,7 @@ export function FeedingFrenzy() {
 
   const SPAWN_INTERVAL = 600 // ms
 
-  // Start game
-  const startGame = useCallback(() => {
-    gameEngine.start()
-    setGameState('playing')
-    setFoodItems([])
-    setScore(0)
-    setCombo(0)
-    setTimeRemaining(45)
-    lastSpawnRef.current = Date.now()
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [gameEngine, gameLoop])
-
-  // Game loop
-  const gameLoop = useCallback(() => {
-    if (gameState !== 'playing') return
-
-    const now = Date.now()
-    
-    // Spawn new food
-    if (now - lastSpawnRef.current > SPAWN_INTERVAL) {
-      spawnFood()
-      lastSpawnRef.current = now
-    }
-
-    // Update food items
-    setFoodItems(prevItems => {
-      const updatedItems = prevItems.map(item => {
-        if (item.caught) return item
-        
-        const newY = item.y + item.speed
-        
-        // Check if food is caught (clicked)
-        if (newY > 100) {
-          // Food missed - reset combo
-          setCombo(0)
-          return { ...item, y: newY }
-        }
-        
-        return { ...item, y: newY }
-      })
-
-      // Remove caught or off-screen food
-      return updatedItems.filter(item => !item.caught && item.y < 100)
-    })
-
-    // Update time
-    setTimeRemaining(prev => {
-      const next = Math.max(0, prev - 1/60)
-      if (next <= 0) {
-        // We can't call endGame here because it's inside setState.
-        // We should handle game end in a separate useEffect or at the end of loop.
-        return 0
-      }
-      return next
-    })
-
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [gameState, SPAWN_INTERVAL, spawnFood]) // spawnFood is also a dependency now
-
-  // Spawn food
+  // Spawn food - must be defined before gameLoop
   const spawnFood = useCallback(() => {
     const id = foodIdRef.current++
     const foodType = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)]
@@ -115,6 +56,60 @@ export function FeedingFrenzy() {
       },
     ])
   }, [])
+
+  // Game loop - must be defined before startGame
+  const gameLoop = useCallback(() => {
+    if (gameState !== 'playing') return
+
+    const now = Date.now()
+    
+    // Spawn new food
+    if (now - lastSpawnRef.current > SPAWN_INTERVAL) {
+      spawnFood()
+      lastSpawnRef.current = now
+    }
+
+    // Update food items
+    setFoodItems(prevItems => {
+      const updatedItems = prevItems.map(item => {
+        if (item.caught) return item
+        
+        const newY = item.y + item.speed
+        
+        // Check if food is missed (clicked)
+        if (newY > 100) {
+          // Food missed - reset combo
+          setCombo(0)
+          return { ...item, y: newY }
+        }
+        
+        return { ...item, y: newY }
+      })
+
+      // Remove caught or off-screen food
+      return updatedItems.filter(item => !item.caught && item.y < 100)
+    })
+
+    // Update time
+    setTimeRemaining(prev => {
+      const next = Math.max(0, prev - 1/60)
+      return next
+    })
+
+    gameLoopRef.current = requestAnimationFrame(gameLoop)
+  }, [gameState, SPAWN_INTERVAL, spawnFood])
+
+  // Start game - can reference gameLoop and spawnFood now
+  const startGame = useCallback(() => {
+    gameEngine.start()
+    setGameState('playing')
+    setFoodItems([])
+    setScore(0)
+    setCombo(0)
+    setTimeRemaining(45)
+    lastSpawnRef.current = Date.now()
+    gameLoopRef.current = requestAnimationFrame(gameLoop)
+  }, [gameEngine, gameLoop])
 
   // Catch food
   const catchFood = (foodId: number) => {
@@ -169,6 +164,13 @@ export function FeedingFrenzy() {
       }
     }
   }, [])
+
+  // Auto-end game when time runs out
+  useEffect(() => {
+    if (gameState === 'playing' && timeRemaining <= 0) {
+      endGame()
+    }
+  }, [timeRemaining, gameState, endGame])
 
   return (
     <div className="relative w-full h-full bg-gradient-to-b from-orange-100 to-orange-200 overflow-hidden">

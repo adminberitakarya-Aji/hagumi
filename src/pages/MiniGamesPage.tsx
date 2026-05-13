@@ -64,7 +64,7 @@ function GameCard({ gameId, onSelect }: { gameId: MiniGameId; onSelect: () => vo
 function SakuraCatchGame() {
   const [petals, setPetals] = useState<Array<{ id: string; x: number; y: number; speed: number }>>([])
   const [caught, setCaught] = useState(0)
-  const [, setMissed] = useState(0)
+  const [missed, setMissed] = useState(0)
   const { updateScore } = useMiniGameStore()
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -203,6 +203,7 @@ function MemoryMatchGame() {
 function FeedingFrenzyGame() {
   const [foods, setFoods] = useState<Array<{ id: string; x: number; y: number }>>([])
   const [fed, setFed] = useState(0)
+  const [missed, setMissed] = useState(0)
   const [combo, setCombo] = useState(0)
   const { updateScore } = useMiniGameStore()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -422,7 +423,7 @@ export default function MiniGamesPage() {
   const [selectedGame, setSelectedGame] = useState<MiniGameId | null>(null)
   const activeGame = useMiniGameStore((s) => selectedGame ? s.getGame(selectedGame) : null)
   const [difficulty] = useState<MiniGameDifficulty>('easy')
-  const [gameInput] = useState<any>(null)
+  const [gameInput, setGameInput] = useState<any>(null)
   const [showResults, setShowResults] = useState(false)
   const [rewards, setRewards] = useState<any[]>([])
 
