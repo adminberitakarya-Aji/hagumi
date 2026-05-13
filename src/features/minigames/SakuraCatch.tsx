@@ -158,7 +158,7 @@ export function SakuraCatch() {
   // Game over observer
   useEffect(() => {
     if (timeRemaining <= 0 && gameState === 'playing') {
-      endGame()
+      setTimeout(() => endGame(), 0)
     }
   }, [timeRemaining, gameState, endGame])
 
