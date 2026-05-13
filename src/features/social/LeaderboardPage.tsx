@@ -1,13 +1,22 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Trophy, Medal, Crown, Star, TrendingUp, Search } from 'lucide-react'
+
+interface LeaderboardEntry {
+  rank: number
+  username: string
+  petName: string
+  score: number
+  stage: string
+  color: string
+}
 
 const LeaderboardPage: React.FC = () => {
   const [filter, setFilter] = useState<'global' | 'friends'>('global')
   const [category, setCategory] = useState<'growth' | 'age' | 'care'>('growth')
 
   // Mock data
-  const topPets = [
+  const topPets: LeaderboardEntry[] = [
     { rank: 1, username: 'SakuraChan', petName: 'Mochi', score: 9850, stage: 'Adult', color: '#ffb7c5' },
     { rank: 2, username: 'YukiNoir', petName: 'Kuro', score: 9420, stage: 'Adult', color: '#2c3e50' },
     { rank: 3, username: 'HaruMizu', petName: 'Matcha', score: 8900, stage: 'Teen', color: '#8fbc8f' },
@@ -127,7 +136,7 @@ const FilterButton: React.FC<{ active: boolean; onClick: () => void; label: stri
   </button>
 )
 
-const PodiumItem: React.FC<{ entry: any; rank: number; height: string }> = ({ entry, rank, height }) => (
+const PodiumItem: React.FC<{ entry: LeaderboardEntry; rank: number; height: string }> = ({ entry, rank, height }) => (
   <div className="flex flex-col items-center">
     <div className="w-16 h-16 rounded-full bg-white border-4 border-[#ffb7c5] mb-2 shadow-lg overflow-hidden flex items-center justify-center">
        <div className="w-12 h-12 rounded-full" style={{ backgroundColor: entry.color }} />
@@ -141,7 +150,7 @@ const PodiumItem: React.FC<{ entry: any; rank: number; height: string }> = ({ en
   </div>
 )
 
-const LeaderboardRow: React.FC<{ pet: any }> = ({ pet }) => (
+const LeaderboardRow: React.FC<{ pet: LeaderboardEntry }> = ({ pet }) => (
   <div className="flex items-center gap-4 p-4 border-b border-[#f8edeb] last:border-0 hover:bg-[#f8edeb]/30 transition-colors">
     <span className="w-8 text-center font-black text-[#8b5e3c]">#{pet.rank}</span>
     <div className="w-10 h-10 rounded-full border-2 border-[#ffb7c5]/20 flex-shrink-0" style={{ backgroundColor: pet.color }} />

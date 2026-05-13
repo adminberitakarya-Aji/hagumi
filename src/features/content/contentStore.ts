@@ -199,7 +199,7 @@ interface ContentStore {
   
   unlockPetLine: (id: PetLineId) => void
   unlockAchievement: (id: string) => void
-  updateProgress: (field: string, value: number) => void
+  updateProgress: (field: keyof ContentStore['stats'], value: number) => void
   checkAchievements: () => void
   
   addItem: (itemId: string, quantity: number) => void
@@ -257,7 +257,7 @@ export const useContentStore = create<ContentStore>()(
 
       updateProgress: (field, value) => {
         set((prev) => ({
-          stats: { ...prev.stats, [field]: (prev.stats as any)[field] + value },
+          stats: { ...prev.stats, [field]: prev.stats[field] + value },
         }))
         get().checkAchievements()
       },
@@ -273,16 +273,16 @@ export const useContentStore = create<ContentStore>()(
 
           switch (achievement.requirement.type) {
             case 'count':
-              progress = (stats as any)[achievement.requirement.field || ''] || 0
+              progress = stats[achievement.requirement.field as keyof typeof stats] || 0
               break
             case 'time':
-              progress = (stats as any)[achievement.requirement.field || ''] || 0
+              progress = stats[achievement.requirement.field as keyof typeof stats] || 0
               break
             case 'stat':
-              progress = (stats as any)[achievement.requirement.field || ''] || 0
+              progress = stats[achievement.requirement.field as keyof typeof stats] || 0
               break
             case 'score':
-              progress = (stats as any)[achievement.requirement.field || ''] || 0
+              progress = stats[achievement.requirement.field as keyof typeof stats] || 0
               break
           }
 

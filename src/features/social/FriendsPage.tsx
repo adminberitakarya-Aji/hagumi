@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSocialStore } from './socialStore'
 import { 
   Users, UserPlus, Search, Check, X, 
-  Trash2, MessageCircle, Heart, Shield 
+  Trash2, MessageCircle 
 } from 'lucide-react'
+import { Friend, FriendRequest } from './types'
 
 const FriendsPage: React.FC = () => {
   const { 
     friends, friendRequests, searchResults, 
-    isLoading, loadFriends, loadFriendRequests,
+    loadFriends, loadFriendRequests,
     searchUsers, sendFriendRequest, acceptFriendRequest,
     rejectFriendRequest, removeFriend 
   } = useSocialStore()
@@ -20,7 +21,7 @@ const FriendsPage: React.FC = () => {
   useEffect(() => {
     loadFriends()
     loadFriendRequests()
-  }, [])
+  }, [loadFriends, loadFriendRequests])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -162,7 +163,7 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string;
   </button>
 )
 
-const FriendCard: React.FC<{ friend: any; onRemove: (id: string) => void }> = ({ friend, onRemove }) => (
+const FriendCard: React.FC<{ friend: Friend; onRemove: (id: string) => void }> = ({ friend, onRemove }) => (
   <div className="bg-white p-4 rounded-2xl shadow-sm border-2 border-[#ffb7c5]/20 flex items-center gap-4 hover:shadow-md transition-shadow">
     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#ffb7c5] to-[#f8edeb] flex items-center justify-center border-4 border-white overflow-hidden shadow-inner">
       {friend.avatarUrl ? (
@@ -195,7 +196,7 @@ const FriendCard: React.FC<{ friend: any; onRemove: (id: string) => void }> = ({
   </div>
 )
 
-const RequestCard: React.FC<{ request: any; onAccept: (id: string) => void; onReject: (id: string) => void }> = ({ 
+const RequestCard: React.FC<{ request: FriendRequest; onAccept: (id: string) => void; onReject: (id: string) => void }> = ({ 
   request, onAccept, onReject 
 }) => (
   <div className="bg-white p-4 rounded-2xl shadow-sm border-2 border-[#ffb7c5]/20 flex items-center justify-between gap-4">
@@ -225,7 +226,7 @@ const RequestCard: React.FC<{ request: any; onAccept: (id: string) => void; onRe
   </div>
 )
 
-const SearchResultCard: React.FC<{ user: any; onAdd: (id: string) => void; isFriend: boolean }> = ({ 
+const SearchResultCard: React.FC<{ user: Friend; onAdd: (id: string) => void; isFriend: boolean }> = ({ 
   user, onAdd, isFriend 
 }) => (
   <div className="bg-white p-4 rounded-2xl shadow-sm border-2 border-[#ffb7c5]/20 flex items-center justify-between gap-4">

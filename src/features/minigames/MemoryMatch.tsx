@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GameEngine } from '@/lib/gameEngine'
 import type { GameType } from '@/types/game'
@@ -120,10 +120,10 @@ export function MemoryMatch() {
   }
 
   // End game
-  const endGame = (victory: boolean) => {
+  const endGame = useCallback((victory: boolean) => {
     gameEngine.end()
     setGameState(victory ? 'victory' : 'gameover')
-  }
+  }, [gameEngine])
 
   // Pause game
   const pauseGame = () => {
@@ -152,7 +152,7 @@ export function MemoryMatch() {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [gameState])
+  }, [gameState, endGame])
 
   return (
     <div className="relative w-full h-full bg-gradient-to-b from-purple-100 to-purple-200 overflow-hidden">

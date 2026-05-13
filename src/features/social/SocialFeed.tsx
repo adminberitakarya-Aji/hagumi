@@ -1,18 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { SceneBackground } from '@/components/layout/SceneBackground'
 import { useSocialStore } from '@/features/social/socialStore'
-import type { ChatMessage } from '@/features/social/types'
+
+interface Post {
+  id: string
+  userId: string
+  displayName: string
+  avatarUrl: string | null
+  content: string
+  timestamp: string
+  likes: number
+  comments: number
+  shares: number
+  type: string
+  tags: string[]
+}
 
 export function SocialFeed() {
-  const { chatMessages, sendChatMessage, chatFilter } = useSocialStore()
-  const [message, setMessage] = useState('')
-  const [posts, setPosts] = useState<any[]>([])
+  useSocialStore()
+  const [posts, setPosts] = useState<Post[]>([])
   const [filter, setFilter] = useState<'recent' | 'trending' | 'popular'>('recent')
 
   // Mock posts data
-  const MOCK_POSTS = [
+  const MOCK_POSTS = useMemo<Post[]>(() => [
     {
       id: '1',
       userId: 'user2',
@@ -78,7 +90,7 @@ export function SocialFeed() {
       type: 'discovery',
       tags: ['genetics', 'mutation', 'rare'],
     },
-  ]
+  ], [])
 
   useEffect(() => {
     // Load posts from Supabase

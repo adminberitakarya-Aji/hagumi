@@ -71,7 +71,7 @@ export function FeedingFrenzy() {
   }, [gameEngine])
 
   // Game loop - named function expression to satisfy lint
-  const gameLoop = useCallback(function loop(_timestamp: number) {
+  const gameLoop = useCallback(function loop() {
     if (gameState !== 'playing') return
 
     const now = Date.now()

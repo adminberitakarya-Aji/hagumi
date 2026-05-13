@@ -5,8 +5,20 @@ import {
   TrendingUp, Sparkles, User, Gift 
 } from 'lucide-react'
 
+interface FeedItemData {
+  id: string
+  user: string
+  action: string
+  content: string
+  timestamp: string
+  likes: number
+  comments: number
+  image: string | null
+  type: 'achievement' | 'social' | 'announcement'
+}
+
 const FeedPage: React.FC = () => {
-  const feedItems = [
+  const feedItems: FeedItemData[] = [
     {
       id: '1', user: 'SakuraChan', action: 'pet_growth', 
       content: 'Mochi just reached the Adult stage! 🌸',
@@ -69,7 +81,7 @@ const FeedPage: React.FC = () => {
   )
 }
 
-const FeedItem: React.FC<{ item: any; index: number }> = ({ item, index }) => {
+const FeedItem: React.FC<{ item: FeedItemData; index: number }> = ({ item, index }) => {
   const getIcon = () => {
     switch (item.type) {
       case 'achievement': return <TrendingUp className="w-4 h-4" />

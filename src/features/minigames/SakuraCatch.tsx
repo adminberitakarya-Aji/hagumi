@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GameEngine } from '@/lib/gameEngine'
 import type { GameType } from '@/types/game'
@@ -28,7 +28,7 @@ export function SakuraCatch() {
   const gameLoopRef = useRef<number>(0)
   const petalIdRef = useRef(0)
 
-  const PETAL_COLORS = ['#FFB7C5', '#FF69B4', '#FFC0CB', '#FFD1DC', '#FFE4E1']
+  const PETAL_COLORS = useMemo(() => ['#FFB7C5', '#FF69B4', '#FFC0CB', '#FFD1DC', '#FFE4E1'], [])
   const SPAWN_INTERVAL = 800 // ms
   const lastSpawnRef = useRef(0)
 
@@ -55,7 +55,7 @@ export function SakuraCatch() {
   }, [PETAL_COLORS])
 
   // Game loop
-  const gameLoop = useCallback(() => {
+  const gameLoop = useCallback(function loop() {
     if (gameState !== 'playing') return
 
     const now = Date.now()
@@ -97,7 +97,7 @@ export function SakuraCatch() {
       return next
     })
 
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
+    gameLoopRef.current = requestAnimationFrame(loop)
   }, [gameState, spawnPetal])
 
   // Start game
