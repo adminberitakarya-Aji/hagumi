@@ -18,11 +18,11 @@ Object.defineProperty(window, 'matchMedia', {
 
 // Mock crypto.randomUUID
 if (typeof crypto === 'undefined') {
-  (global as any).crypto = {
+  (global as unknown as { crypto: unknown }).crypto = {
     randomUUID: () => 'test-uuid',
   };
-} else if (!(crypto as any).randomUUID) {
-  (crypto as any).randomUUID = () => 'test-uuid';
+} else if (!(crypto as unknown as { randomUUID: unknown }).randomUUID) {
+  (crypto as unknown as { randomUUID: () => string }).randomUUID = () => 'test-uuid';
 }
 
 // Mock IntersectionObserver
@@ -34,7 +34,7 @@ global.IntersectionObserver = class IntersectionObserver {
     return [];
   }
   unobserve() {}
-} as any;
+} as unknown as typeof IntersectionObserver;
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
@@ -42,7 +42,7 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
   observe() {}
   unobserve() {}
-} as any;
+} as unknown as typeof ResizeObserver;
 
 // Mock WebSocket
 global.WebSocket = class WebSocket {
@@ -69,7 +69,7 @@ global.WebSocket = class WebSocket {
   onerror: ((event: Event) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
 
-  send(data: string | ArrayBuffer | Blob) {
+  send(_data: string | ArrayBuffer | Blob) {
     // Mock send
   }
 
@@ -80,19 +80,19 @@ global.WebSocket = class WebSocket {
     }
   }
 
-  addEventListener(type: string, listener: EventListener) {
+  addEventListener(_type: string, _listener: EventListener) {
     // Mock addEventListener
   }
 
-  removeEventListener(type: string, listener: EventListener) {
+  removeEventListener(_type: string, _listener: EventListener) {
     // Mock removeEventListener
   }
-} as any;
+} as unknown as typeof WebSocket;
 
 // Suppress console errors in tests (optional)
 const originalError = console.error;
 beforeAll(() => {
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     if (
       typeof args[0] === 'string' &&
       args[0].includes('Warning: ReactDOM.render')

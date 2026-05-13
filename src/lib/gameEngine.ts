@@ -172,14 +172,14 @@ export class GameEngine implements IGameEngine {
     }
 
     // Game-specific update logic should be implemented in subclasses
-    this.onUpdate(deltaTime)
+    this.onUpdate()
   }
 
   handleInput(input: unknown): void {
     if (this.session.state !== 'playing') return
 
     // Game-specific input handling
-    this.onInput(input)
+    this.onInput()
   }
 
   getScore(): number {
@@ -241,11 +241,11 @@ export class GameEngine implements IGameEngine {
 
   // ─── Virtual Methods (to be overridden) ───────────────
 
-  protected onUpdate(_deltaTime: number): void {
+  protected onUpdate(): void {
     // Override in subclasses
   }
 
-  protected onInput(_input: unknown): void {
+  protected onInput(): void {
     // Override in subclasses
   }
 

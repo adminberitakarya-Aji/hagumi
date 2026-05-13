@@ -66,7 +66,7 @@ export interface GameLeaderboard {
 export interface GameEvent {
   type: 'start' | 'score' | 'combo' | 'powerup' | 'gameover' | 'victory'
   timestamp: number
-  data?: any
+  data?: unknown
 }
 
 export interface GameEngine {
@@ -82,7 +82,7 @@ export interface GameEngine {
   
   // Game-specific methods
   update(deltaTime: number): void
-  handleInput(input: any): void
+  handleInput(input: unknown): void
   getScore(): number
   getTimeRemaining(): number
   
@@ -100,6 +100,6 @@ export interface MiniGameComponent {
   render(): React.ReactNode
   onMount?(): void
   onUnmount?(): void
-  onInput?(input: any): void
+  onInput?(input: unknown): void
   onUpdate?(deltaTime: number): void
 }

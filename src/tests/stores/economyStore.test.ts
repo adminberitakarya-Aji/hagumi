@@ -1,4 +1,5 @@
 import { useEconomyStore } from '@/features/economy/economyStore'
+import type { GachaPull, Purchase } from '@/features/economy/types'
 import { act } from '@testing-library/react'
 import { supabase } from '@/lib/supabase'
 
@@ -97,14 +98,14 @@ describe('useEconomyStore', () => {
     })
     ;(supabase.rpc as jest.Mock).mockResolvedValue({ error: null })
 
-    let pull: any
+    let pull: GachaPull | null = null
     await act(async () => {
       pull = await useEconomyStore.getState().pullGacha('seasonal_spring', 1)
     })
 
-    expect(pull).toBeDefined()
-    expect(pull.items).toHaveLength(1)
-    expect(pull.cost).toBe(100)
+    expect(pull).toBeTruthy()
+    expect(pull!.items).toHaveLength(1)
+    expect(pull!.cost).toBe(100)
     expect(useEconomyStore.getState().balance.gems).toBe(900)
   })
 
@@ -183,13 +184,13 @@ describe('useEconomyStore', () => {
     })
     ;(supabase.rpc as jest.Mock).mockResolvedValue({ error: null })
 
-    let purchase: any
+    let purchase: Purchase | null = null
     await act(async () => {
       purchase = await useEconomyStore.getState().purchaseShopItem('cosmic_background')
     })
 
-    expect(purchase).toBeDefined()
-    expect(purchase.amount).toBe(500)
+    expect(purchase).toBeTruthy()
+    expect(purchase!.amount).toBe(500)
     expect(useEconomyStore.getState().balance.gems).toBe(500)
   })
 })

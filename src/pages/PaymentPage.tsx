@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAuthStore } from '@/stores/authStore'
+import { motion } from 'framer-motion'
 import { ECONOMY_CONFIG } from '@/features/economy/economyStore'
 import CheckoutForm from '@/features/economy/CheckoutForm'
 
@@ -10,8 +9,7 @@ import CheckoutForm from '@/features/economy/CheckoutForm'
 const stripePromise = loadStripe('pk_test_TYooMQauvdEDq54NiTphI7jx')
 
 export default function PaymentPage() {
-  const { user } = useAuthStore()
-  const [selectedPackage, setSelectedPackage] = useState<any>(null)
+  const [selectedPackage, setSelectedPackage] = useState<{ gems: number; price: number } | null>(null)
   const [clientSecret, setClientSecret] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
@@ -19,7 +17,7 @@ export default function PaymentPage() {
 
   const packages = ECONOMY_CONFIG.gemPackages
 
-  const handleSelectPackage = async (pkg: any) => {
+  const handleSelectPackage = async (pkg: { gems: number; price: number }) => {
     setSelectedPackage(pkg)
     setIsLoading(true)
     setShowCheckout(true)
@@ -149,8 +147,8 @@ export default function PaymentPage() {
                 ) : (
                   <Elements options={{ clientSecret, appearance }} stripe={stripePromise}>
                     <CheckoutForm 
-                      amount={Math.round(selectedPackage.price * 100)} 
-                      gems={selectedPackage.gems} 
+                      amount={Math.round(selectedPackage!.price * 100)} 
+                      gems={selectedPackage!.gems} 
                       onSuccess={handlePaymentSuccess}
                       onCancel={handlePaymentCancel}
                     />

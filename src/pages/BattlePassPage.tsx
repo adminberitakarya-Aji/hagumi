@@ -19,7 +19,7 @@ export default function BattlePassPage() {
     loadBattlePass()
   }, [loadBattlePass])
 
-  const handleClaimReward = async (level: number, _isPremium: boolean) => {
+  const handleClaimReward = async (level: number) => {
     setSelectedLevel(level)
     setShowRewardModal(true)
   }
@@ -192,7 +192,7 @@ export default function BattlePassPage() {
                   </div>
                   {isUnlocked && !isClaimedFree && (
                     <button
-                      onClick={() => handleClaimReward(level, false)}
+                      onClick={() => handleClaimReward(level)}
                       className="mt-3 w-full bg-gradient-to-r from-blue-400 to-cyan-500 text-white py-2 rounded-full font-semibold hover:from-blue-500 hover:to-cyan-600 transition-all"
                     >
                       Claim
@@ -223,7 +223,7 @@ export default function BattlePassPage() {
                   </div>
                   {canClaimPremium && isUnlocked && !isClaimedPremium && (
                     <button
-                      onClick={() => handleClaimReward(level, true)}
+                      onClick={() => handleClaimReward(level)}
                       className="mt-3 w-full bg-gradient-to-r from-purple-400 to-pink-500 text-white py-2 rounded-full font-semibold hover:from-purple-500 hover:to-pink-600 transition-all"
                     >
                       Claim

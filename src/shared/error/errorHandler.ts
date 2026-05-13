@@ -113,7 +113,7 @@ export function errorFromStandardError(error: Error): AppError {
 /**
  * Creates an error from an API response
  */
-export function errorFromAPIResponse(response: any): AppError {
+export function errorFromAPIResponse(response: { code?: string; message?: string; details?: string }): AppError {
   return {
     code: response.code || ErrorCode.API_ERROR,
     message: response.message || 'An error occurred',
@@ -305,7 +305,7 @@ export function logErrorWithContext(
 /**
  * Handles an API error response
  */
-export function handleAPIError(response: any): AppError {
+export function handleAPIError(response: { code?: string; message?: string; details?: string }): AppError {
   const error = errorFromAPIResponse(response);
   logError(error);
   return error;

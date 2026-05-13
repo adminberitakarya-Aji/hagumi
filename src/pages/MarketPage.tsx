@@ -4,7 +4,7 @@ import { useMarketStore } from '@/stores/marketStore'
 import { SceneBackground } from '@/components/layout/SceneBackground'
 import { motion } from 'framer-motion'
 
-const MarketItem = React.memo(({ item }: { item: any }) => (
+const MarketItem = React.memo(({ item }: { item: { id: string; profiles?: { display_name: string } } }) => (
   <motion.div
     whileTap={{ scale: 0.98 }}
     className="glass p-4 rounded-2xl flex items-center gap-4"

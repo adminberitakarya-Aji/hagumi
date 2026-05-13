@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { SceneBackground } from '@/components/layout/SceneBackground'
@@ -113,11 +113,11 @@ export function SocialFeed() {
       console.warn('[SocialFeed] Using mock data (Supabase unavailable)')
       setPosts(MOCK_POSTS)
     }
-  }, [MOCK_POSTS])
+  }, [])
 
   useEffect(() => {
     // Load posts from Supabase
-    loadPosts()
+    setTimeout(() => loadPosts(), 0)
   }, [loadPosts])
 
   const handleLike = (postId: string) => {

@@ -36,7 +36,7 @@ describe('errorHandler utilities', () => {
     const error = createError(ErrorCode.AUTH_REQUIRED, 'Original message')
     expect(getUserFriendlyMessage(error)).toBe('Please log in to continue')
     
-    const unknownError = createError('UNKNOWN' as any, 'Custom message')
+    const unknownError = createError('UNKNOWN' as ErrorCode, 'Custom message')
     expect(getUserFriendlyMessage(unknownError)).toBe('Custom message')
   })
 

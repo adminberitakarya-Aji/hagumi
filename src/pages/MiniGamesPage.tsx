@@ -408,7 +408,7 @@ function PetDanceGame() {
 
 // ─── Game Component Router ─────────────────────────────
 
-function GameComponent({ gameId, onEnd }: { gameId: MiniGameId; onEnd: (input: any) => void }) {
+function GameComponent({ gameId }: { gameId: MiniGameId }) {
   switch (gameId) {
     case 'sakura-catch':
       return <SakuraCatchGame />
@@ -433,9 +433,9 @@ export default function MiniGamesPage() {
   const [selectedGame, setSelectedGame] = useState<MiniGameId | null>(null)
   const activeGame = useMiniGameStore((s) => selectedGame ? s.getGame(selectedGame) : null)
   const [difficulty] = useState<MiniGameDifficulty>('easy')
-  const [gameInput, setGameInput] = useState<any>(null)
+  const [gameInput, setGameInput] = useState<unknown>(null)
   const [showResults, setShowResults] = useState(false)
-  const [rewards, setRewards] = useState<any[]>([])
+  const [rewards, setRewards] = useState<unknown[]>([])
 
   const games: MiniGameId[] = ['sakura-catch', 'memory-match', 'feeding-frenzy', 'hide-seek', 'pet-dance']
 
@@ -444,9 +444,9 @@ export default function MiniGamesPage() {
     startGame(gameId, difficulty)
   }
 
-  const handleEndGame = (input: any) => {
+  const handleEndGame = (input: unknown) => {
     setGameInput(input)
-    const earnedRewards = endGame(input)
+    const earnedRewards = endGame(input as any)
     setRewards(earnedRewards)
     setShowResults(true)
     updateProgress('games_played', 1)
@@ -489,7 +489,7 @@ export default function MiniGamesPage() {
               <h2 className="text-lg font-bold text-white">{activeGame?.name}</h2>
               <span className="text-xs text-white/30">Score: {state.score}</span>
             </div>
-            <GameComponent gameId={selectedGame} onEnd={handleEndGame} />
+            <GameComponent gameId={selectedGame} />
             <button
               onClick={() => handleEndGame(gameInput || {})}
               className="w-full py-3 text-sm font-bold bg-hagumi-pink hover:bg-pink-500 text-white rounded-2xl"
@@ -512,7 +512,7 @@ export default function MiniGamesPage() {
             {rewards.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-bold text-white/70">Rewards:</p>
-                {rewards.map((reward, i) => (
+                {rewards.map((reward: any, i) => (
                   <div key={i} className="text-sm text-white">
                     {reward.type === 'coins' && `💰 ${reward.amount} coins`}
                     {reward.type === 'gems' && `💎 ${reward.amount} gems`}

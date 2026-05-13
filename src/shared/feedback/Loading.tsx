@@ -38,7 +38,9 @@ export function LoadingSkeleton({ lines = 3, className }: { lines?: number; clas
   )
 
   useEffect(() => {
-    setWidths(Array.from({ length: lines }).map(() => `${60 + Math.random() * 40}%`))
+    setTimeout(() => {
+      setWidths(Array.from({ length: lines }).map(() => `${60 + Math.random() * 40}%`))
+    }, 0)
   }, [lines])
 
   return (

@@ -1,4 +1,5 @@
 import { useMiniGameStore } from '@/features/minigames/minigameStore'
+import type { MiniGameSession } from '@/features/minigames/types'
 import { act } from '@testing-library/react'
 
 describe('useMiniGameStore', () => {
@@ -62,9 +63,9 @@ describe('useMiniGameStore', () => {
     // Mock perfect score
     const playerInput = { caught: 10, missed: 0 }
     
-    let rewards
+    let _rewards
     act(() => {
-      rewards = useMiniGameStore.getState().endGame(playerInput)
+      _rewards = useMiniGameStore.getState().endGame(playerInput)
     })
 
     const store = useMiniGameStore.getState()
@@ -86,10 +87,10 @@ describe('useMiniGameStore', () => {
     act(() => {
       useMiniGameStore.setState({
         sessions: [
-          { gameId: 'sakura-catch', score: 100 } as any,
-          { gameId: 'sakura-catch', score: 300 } as any,
-          { gameId: 'sakura-catch', score: 200 } as any,
-          { gameId: 'memory-match', score: 500 } as any,
+          { gameId: 'sakura-catch', score: 100 } as unknown as MiniGameSession,
+          { gameId: 'sakura-catch', score: 300 } as unknown as MiniGameSession,
+          { gameId: 'sakura-catch', score: 200 } as unknown as MiniGameSession,
+          { gameId: 'memory-match', score: 500 } as unknown as MiniGameSession,
         ]
       })
     })

@@ -439,8 +439,8 @@ export function makeAIDecision(
   const modifiedPriority = basePriority + stateModifier
 
   // Determine best action based on state and personality
-  let action: AIAction = AI_ACTIONS.rest
-  let reasoning = 'Neutral'
+  let action: AIAction
+  let reasoning: string
 
   // Urgent needs first
   if (stats.hunger < 30) {
@@ -542,7 +542,7 @@ export function updateAILearning(
   learning: { actionHistory: any[]; preferences: Record<string, number>; learnedBehaviors: string[] },
   action: string,
   result: 'positive' | 'negative' | 'neutral'
-): any {
+): { actionHistory: any[]; preferences: Record<string, number>; learnedBehaviors: string[] } {
   const now = Date.now()
 
   // Add to history
@@ -637,7 +637,7 @@ export function tickAI(pet: Pet, ai: PetAI): AITickResult {
 function generateAIMessage(
   _pet: Pet,
   state: PetAIState,
-  _emotion: AIEmotion
+  _emotion?: AIEmotion
 ): string {
   const messages: Record<PetAIState, string[]> = {
     idle: ['...', 'What should we do?', 'I\'m here for you!'],

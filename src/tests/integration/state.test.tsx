@@ -1,31 +1,31 @@
-import { renderHook, act } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 
 // Mock stores with actual implementations
-const mockPetStore: any = {
+const mockPetStore: Record<string, any> = {
   pets: new Map(),
   currentPet: null,
-  addPet: jest.fn((pet: any) => {
-    mockPetStore.pets.set(pet.id, pet);
+  addPet: jest.fn((pet: unknown) => {
+    mockPetStore.pets.set((pet as { id: string }).id, pet);
   }),
-  updatePet: jest.fn((pet: any) => {
-    if (mockPetStore.pets.has(pet.id)) {
-      mockPetStore.pets.set(pet.id, pet);
+  updatePet: jest.fn((pet: unknown) => {
+    if (mockPetStore.pets.has((pet as { id: string }).id)) {
+      mockPetStore.pets.set((pet as { id: string }).id, pet);
     }
   }),
   removePet: jest.fn((petId: string) => {
     mockPetStore.pets.delete(petId);
   }),
-  setCurrentPet: jest.fn((pet: any) => {
+  setCurrentPet: jest.fn((pet: unknown) => {
     mockPetStore.currentPet = pet;
   }),
   getCurrentPet: jest.fn(() => mockPetStore.currentPet),
 };
 
-const mockAuthStore: any = {
+const mockAuthStore: Record<string, any> = {
   user: null,
   isAuthenticated: false,
-  login: jest.fn((user: any) => {
+  login: jest.fn((user: unknown) => {
     mockAuthStore.user = user;
     mockAuthStore.isAuthenticated = true;
   }),
@@ -33,7 +33,7 @@ const mockAuthStore: any = {
     mockAuthStore.user = null;
     mockAuthStore.isAuthenticated = false;
   }),
-  setUser: jest.fn((user: any) => {
+  setUser: jest.fn((user: unknown) => {
     mockAuthStore.user = user;
   }),
 };
@@ -474,7 +474,7 @@ describe('State Integration Tests', () => {
       });
 
       // Simulate WebSocket update
-      const wsUpdate = {
+      const _wsUpdate = {
         type: 'pet:state_update',
         payload: {
           petId: 'pet-123',

@@ -4,7 +4,7 @@ import type { User } from '@/types'
 
 interface AuthStore {
   user: User | null
-  session: any | null
+  session: unknown | null
   isLoading: boolean
   setUser: (user: User | null) => void
   loadUser: () => Promise<void>
