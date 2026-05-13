@@ -99,13 +99,32 @@ CREATE TRIGGER update_pets_updated_at BEFORE UPDATE ON pets
 -- Create trigger for audit logging
 CREATE OR REPLACE FUNCTION log_audit_changes()
 RETURNS TRIGGER AS $$
+DECLARE
+    audit_user_id UUID;
+    audit_entity_id UUID;
+    record_json JSONB;
 BEGIN
+    IF TG_OP = 'DELETE' THEN
+        record_json := row_to_json(OLD)::JSONB;
+    ELSE
+        record_json := row_to_json(NEW)::JSONB;
+    END IF;
+
+    -- Try to get user_id, fallback to id if the table is 'users'
+    IF TG_TABLE_NAME = 'users' THEN
+        audit_user_id := (record_json->>'id')::UUID;
+    ELSE
+        audit_user_id := (record_json->>'user_id')::UUID;
+    END IF;
+
+    audit_entity_id := (record_json->>'id')::UUID;
+
     INSERT INTO audit_log (user_id, action, entity_type, entity_id, old_data, new_data)
     VALUES (
-        COALESCE(NEW.user_id, OLD.user_id),
+        audit_user_id,
         TG_OP,
         TG_TABLE_NAME,
-        COALESCE(NEW.id, OLD.id),
+        audit_entity_id,
         row_to_json(OLD),
         row_to_json(NEW)
     );

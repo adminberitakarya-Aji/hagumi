@@ -2,7 +2,17 @@ import { act } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from '@jest/globals';
 
 // Mock stores with actual implementations
-const mockPetStore: Record<string, any> = {
+interface MockPetStore {
+  pets: Map<string, unknown>;
+  currentPet: unknown;
+  addPet: jest.Mock;
+  updatePet: jest.Mock;
+  removePet: jest.Mock;
+  setCurrentPet: jest.Mock;
+  getCurrentPet: jest.Mock;
+}
+
+const mockPetStore: MockPetStore = {
   pets: new Map(),
   currentPet: null,
   addPet: jest.fn((pet: unknown) => {
@@ -22,7 +32,15 @@ const mockPetStore: Record<string, any> = {
   getCurrentPet: jest.fn(() => mockPetStore.currentPet),
 };
 
-const mockAuthStore: Record<string, any> = {
+interface MockAuthStore {
+  user: unknown;
+  isAuthenticated: boolean;
+  login: jest.Mock;
+  logout: jest.Mock;
+  setUser: jest.Mock;
+}
+
+const mockAuthStore: MockAuthStore = {
   user: null,
   isAuthenticated: false,
   login: jest.fn((user: unknown) => {
@@ -473,22 +491,13 @@ describe('State Integration Tests', () => {
         mockPetStore.addPet(pet);
       });
 
-      // Simulate WebSocket update
-      const _wsUpdate = {
-        type: 'pet:state_update',
-        payload: {
-          petId: 'pet-123',
-          stats: {
-            hunger: 75,
-            mood: 70,
-            energy: 85,
-            health: 95,
-          },
-        },
-      };
-
       // In real implementation, this would update the store
       expect(mockPetStore.pets.has('pet-123')).toBe(true);
+    });
+
+    it('should handle action response', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let messageHandler: any = null;
     });
 
     it('should handle sync conflicts', () => {

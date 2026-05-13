@@ -44,7 +44,7 @@ describe('API Integration Tests', () => {
 
       global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
 
-      const _ws = new WebSocket('ws://localhost:3001/ws');
+      new WebSocket('ws://localhost:3001/ws');
       
       expect(mockWebSocket.addEventListener).toHaveBeenCalledWith('open', expect.any(Function));
     });
@@ -64,7 +64,7 @@ describe('API Integration Tests', () => {
 
       global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
 
-      const _ws = new WebSocket('ws://localhost:3001/ws');
+      new WebSocket('ws://localhost:3001/ws');
       
       expect(mockWebSocket.addEventListener).toHaveBeenCalledWith('error', expect.any(Function));
     });
@@ -98,7 +98,7 @@ describe('API Integration Tests', () => {
     });
 
     it('should handle action response', async () => {
-      let messageHandler: any = null;
+      let messageHandler: (event: { data: string }) => void = () => {};
       
       const mockWebSocket = {
         readyState: WebSocket.OPEN,
@@ -114,7 +114,7 @@ describe('API Integration Tests', () => {
 
       global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
 
-      const _ws = new WebSocket('ws://localhost:3001/ws');
+      new WebSocket('ws://localhost:3001/ws');
       
       // Simulate receiving a message
       const response = {
@@ -130,9 +130,7 @@ describe('API Integration Tests', () => {
         },
       };
 
-      if (messageHandler) {
-        messageHandler({ data: JSON.stringify(response) });
-      }
+      messageHandler({ data: JSON.stringify(response) });
 
       expect(mockWebSocket.addEventListener).toHaveBeenCalledWith('message', expect.any(Function));
     });

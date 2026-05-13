@@ -175,7 +175,7 @@ export class GameEngine implements IGameEngine {
     this.onUpdate()
   }
 
-  handleInput(input: unknown): void {
+  handleInput(): void {
     if (this.session.state !== 'playing') return
 
     // Game-specific input handling

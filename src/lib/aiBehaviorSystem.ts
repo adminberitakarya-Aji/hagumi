@@ -539,10 +539,10 @@ export function determineEmotion(
 // ─── Learning System ───────────────────────────────────
 
 export function updateAILearning(
-  learning: { actionHistory: any[]; preferences: Record<string, number>; learnedBehaviors: string[] },
+  learning: { actionHistory: unknown[]; preferences: Record<string, number>; learnedBehaviors: string[] },
   action: string,
   result: 'positive' | 'negative' | 'neutral'
-): { actionHistory: any[]; preferences: Record<string, number>; learnedBehaviors: string[] } {
+): { actionHistory: unknown[]; preferences: Record<string, number>; learnedBehaviors: string[] } {
   const now = Date.now()
 
   // Add to history
@@ -623,7 +623,7 @@ export function tickAI(pet: Pet, ai: PetAI): AITickResult {
   const shouldNotify = decision.urgency > 70
 
   // Generate message
-  const message = generateAIMessage(pet, ai.currentState, emotion)
+  const message = generateAIMessage(pet, ai.currentState)
 
   return {
     newState: ai.currentState,
@@ -636,8 +636,7 @@ export function tickAI(pet: Pet, ai: PetAI): AITickResult {
 
 function generateAIMessage(
   _pet: Pet,
-  state: PetAIState,
-  _emotion?: AIEmotion
+  state: PetAIState
 ): string {
   const messages: Record<PetAIState, string[]> = {
     idle: ['...', 'What should we do?', 'I\'m here for you!'],

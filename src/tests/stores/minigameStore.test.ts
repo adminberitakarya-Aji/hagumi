@@ -63,9 +63,8 @@ describe('useMiniGameStore', () => {
     // Mock perfect score
     const playerInput = { caught: 10, missed: 0 }
     
-    let _rewards
     act(() => {
-      _rewards = useMiniGameStore.getState().endGame(playerInput)
+      useMiniGameStore.getState().endGame(playerInput)
     })
 
     const store = useMiniGameStore.getState()

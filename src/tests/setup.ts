@@ -69,7 +69,7 @@ global.WebSocket = class WebSocket {
   onerror: ((event: Event) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
 
-  send(_data: string | ArrayBuffer | Blob) {
+  send() {
     // Mock send
   }
 
@@ -80,11 +80,11 @@ global.WebSocket = class WebSocket {
     }
   }
 
-  addEventListener(_type: string, _listener: EventListener) {
+  addEventListener() {
     // Mock addEventListener
   }
 
-  removeEventListener(_type: string, _listener: EventListener) {
+  removeEventListener() {
     // Mock removeEventListener
   }
 } as unknown as typeof WebSocket;

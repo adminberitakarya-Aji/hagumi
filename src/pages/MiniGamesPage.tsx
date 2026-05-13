@@ -512,7 +512,7 @@ export default function MiniGamesPage() {
             {rewards.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-bold text-white/70">Rewards:</p>
-                {rewards.map((reward: any, i) => (
+                {rewards.map((reward: any, i: number) => (
                   <div key={i} className="text-sm text-white">
                     {reward.type === 'coins' && `💰 ${reward.amount} coins`}
                     {reward.type === 'gems' && `💎 ${reward.amount} gems`}
