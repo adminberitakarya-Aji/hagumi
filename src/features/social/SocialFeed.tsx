@@ -241,7 +241,7 @@ export function SocialFeed() {
                         <span className="text-sm">❤️ {post.likes}</span>
                       </button>
                       <button
-                        onClick={() => handleComment(post.id, '')}
+                        onClick={() => handleComment(post.id)}
                         className="flex items-center gap-1 text-white/60 hover:text-blue-400 transition-colors"
                       >
                         <span className="text-sm">💬 {post.comments}</span>

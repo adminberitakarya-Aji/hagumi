@@ -67,7 +67,7 @@ func TestDB_PetCRUD(t *testing.T) {
 		IsActive:  true,
 	}
 
-	err := petRepo.Create(ctx, pet)
+	err = petRepo.Create(ctx, pet)
 	tests.AssertNil(t, err, "Pet creation should succeed")
 
 	// Test Read
@@ -170,7 +170,7 @@ func TestDB_ConcurrentAccess(t *testing.T) {
 				IsActive:  true,
 			}
 
-			err := petRepo.Create(ctx, pet)
+			err = petRepo.Create(ctx, pet)
 			tests.AssertNil(t, err, "Concurrent pet creation should succeed")
 			done <- true
 		}(i)
@@ -211,7 +211,7 @@ func TestDB_DataConsistency(t *testing.T) {
 		IsActive:  true,
 	}
 
-	err := petRepo.Create(ctx, pet)
+	err = petRepo.Create(ctx, pet)
 	tests.AssertNil(t, err, "Pet creation should succeed")
 
 	// Retrieve and verify
