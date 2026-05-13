@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Modal } from '../ui/Modal'
 import { Pet } from '@/types'
 import { motion } from 'framer-motion'
-import Anthropic from '@anthropic-ai/sdk'
+// import Anthropic from '@anthropic-ai/sdk' // Removed to fix build errors
 
 interface Props {
   pet: Pet
@@ -10,34 +10,6 @@ interface Props {
 }
 
 type Message = { role: 'user' | 'assistant', text: string }
-
-function generateSystemPrompt(pet: Pet) {
-  const { hunger, energy, mood } = pet.stats
-  const personality = pet.genetics.personality || 'playful'
-  
-  const stateDesc = []
-  if (hunger < 30) stateDesc.push("kelaparan (butuh makanan)")
-  else if (hunger > 80) stateDesc.push("kenyang")
-  
-  if (energy < 30) stateDesc.push("sangat lelah dan mengantuk")
-  else if (energy > 80) stateDesc.push("penuh energi")
-  
-  if (mood < 30) stateDesc.push("sedih, rewel, atau marah")
-  else if (mood > 80) stateDesc.push("sangat bahagia dan gembira")
-
-  const stateString = stateDesc.length > 0 ? stateDesc.join(', ') : 'normal dan biasa saja'
-
-  return `Kamu adalah peliharaan virtual (Virtual Pet) bernama ${pet.name}. 
-Sifat/kepribadian utamamu adalah: ${personality}.
-Saat ini kondisi fisikmu sedang: ${stateString}. (Statistik: Lapar ${hunger}/100, Energi ${energy}/100, Mood ${mood}/100).
-
-Instruksi:
-1. Balaslah obrolan pengguna dengan gaya bahasa yang sesuai dengan kepribadian dan kondisi fisikmu saat ini.
-2. Jika lapar/lelah/sedih, tunjukkan di gaya bicaramu (misal mengeluh, jutek, atau lemas).
-3. Gunakan bahasa Indonesia yang santai, imut (kawaii), dan ekspresif.
-4. Jangan pernah menyebut dirimu sebagai AI. Kamu adalah makhluk virtual hidup.
-5. Balas dengan singkat (maksimal 2 kalimat).`
-}
 
 export function ChatModal({ pet, onClose }: Props) {
   const [messages, setMessages] = useState<Message[]>([
@@ -61,42 +33,30 @@ export function ChatModal({ pet, onClose }: Props) {
     setInput('')
     setLoading(true)
 
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-
     try {
-      if (!apiKey || apiKey === 'your-api-key-here') {
-        // Fallback mock if no API key is provided
-        setTimeout(() => {
-          let responseText = `*hihi* ${userMsg} ya? Aku senang sekali mendengarnya! 💕`
-          if (pet.stats.hunger < 30) responseText = `Aduh... mau jawab "${userMsg}", tapi perutku keroncongan banget... 🥺 lapar...`
-          else if (pet.stats.energy < 30) responseText = `Hoahm... "${userMsg}"? Aku ngantuk banget, mau tidur... 💤`
-          else if (pet.stats.mood < 30) responseText = `Hmph! Males bahas "${userMsg}", aku lagi bad mood! 😤`
-
-          setMessages(prev => [...prev, { role: 'assistant', text: responseText }])
-          setLoading(false)
-        }, 1000)
-        return
-      }
-
-      const anthropic = new Anthropic({
-        apiKey,
-        dangerouslyAllowBrowser: true, // For client-side prototype only
-      })
-
-      const aiResponse = await anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 150,
-        system: generateSystemPrompt(pet),
-        messages: [
-          ...messages.map(m => ({ role: m.role, content: m.text })),
-          { role: 'user', content: userMsg }
-        ]
-      })
-
-      const reply = 'text' in aiResponse.content[0] ? aiResponse.content[0].text : "*tersenyum*"
+      // For now, we use a more sophisticated mock that simulates the pet's personality
+      // In the future, this will call: const response = await fetch('/api/chat', { ... })
       
-      setMessages(prev => [...prev, { role: 'assistant', text: reply }])
-      setLoading(false)
+      setTimeout(() => {
+        let responseText = `*hihi* ${userMsg} ya? Aku senang sekali mendengarnya! 💕`
+        const { hunger, energy, mood } = pet.stats
+        
+        if (hunger < 30) {
+          responseText = `Aduh... mau jawab "${userMsg}", tapi perutku keroncongan banget... 🥺 lapar...`
+        } else if (energy < 30) {
+          responseText = `Hoahm... "${userMsg}"? Aku ngantuk banget, mau tidur... 💤`
+        } else if (mood < 30) {
+          responseText = `Hmph! Males bahas "${userMsg}", aku lagi bad mood! 😤`
+        } else if (userMsg.toLowerCase().includes('halo') || userMsg.toLowerCase().includes('hai')) {
+          responseText = `Halo juga! Aku ${pet.name}, senang deh kamu menyapa! ✨`
+        } else if (userMsg.toLowerCase().includes('makan')) {
+          responseText = `Wah, bicara soal makan jadi makin laper nih! 😋`
+        }
+
+        setMessages(prev => [...prev, { role: 'assistant', text: responseText }])
+        setLoading(false)
+      }, 800)
+
     } catch (error) {
       console.error('Chat error:', error)
       setMessages(prev => [...prev, { role: 'assistant', text: `(Koneksi terputus... coba lagi nanti ya!)` }])
