@@ -34,10 +34,14 @@ export function FeedingFrenzy() {
   const gameLoopRef = useRef<number>(0)
   const foodIdRef = useRef(0)
   const lastSpawnRef = useRef(0)
+  const scoreRef = useRef(score)
+  useEffect(() => {
+    scoreRef.current = score
+  }, [score])
 
   const SPAWN_INTERVAL = 600 // ms
 
-  // Spawn food - must be defined before gameLoop
+  // Spawn food
   const spawnFood = useCallback(() => {
     const id = foodIdRef.current++
     const foodType = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)]
@@ -57,8 +61,17 @@ export function FeedingFrenzy() {
     ])
   }, [])
 
-  // Game loop - must be defined before startGame
-  const gameLoop = useCallback(() => {
+  // End game - stable except for gameEngine
+  const endGame = useCallback(() => {
+    if (gameLoopRef.current) {
+      cancelAnimationFrame(gameLoopRef.current)
+    }
+    gameEngine.end()
+    setGameState(scoreRef.current > 0 ? 'victory' : 'gameover')
+  }, [gameEngine])
+
+  // Game loop - named function expression to satisfy lint
+  const gameLoop = useCallback(function loop(_timestamp: number) {
     if (gameState !== 'playing') return
 
     const now = Date.now()
@@ -93,13 +106,17 @@ export function FeedingFrenzy() {
     // Update time
     setTimeRemaining(prev => {
       const next = Math.max(0, prev - 1/60)
+      // End game if time runs out
+      if (next <= 0) {
+        endGame()
+      }
       return next
     })
 
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [gameState, SPAWN_INTERVAL, spawnFood])
+    gameLoopRef.current = requestAnimationFrame(loop)
+  }, [gameState, SPAWN_INTERVAL, spawnFood, endGame])
 
-  // Start game - can reference gameLoop and spawnFood now
+  // Start game
   const startGame = useCallback(() => {
     gameEngine.start()
     setGameState('playing')
@@ -129,16 +146,6 @@ export function FeedingFrenzy() {
     setScore(prev => prev + Math.floor(points))
   }
 
-  // End game
-  const endGame = useCallback(() => {
-    if (gameLoopRef.current) {
-      cancelAnimationFrame(gameLoopRef.current)
-    }
-    
-    gameEngine.end()
-    setGameState(score > 0 ? 'victory' : 'gameover')
-  }, [gameEngine, score])
-
   // Pause game
   const pauseGame = () => {
     if (gameLoopRef.current) {
@@ -164,13 +171,6 @@ export function FeedingFrenzy() {
       }
     }
   }, [])
-
-  // Auto-end game when time runs out
-  useEffect(() => {
-    if (gameState === 'playing' && timeRemaining <= 0) {
-      endGame()
-    }
-  }, [timeRemaining, gameState, endGame])
 
   return (
     <div className="relative w-full h-full bg-gradient-to-b from-orange-100 to-orange-200 overflow-hidden">

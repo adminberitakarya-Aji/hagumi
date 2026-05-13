@@ -231,7 +231,7 @@ function FeedingFrenzyGame() {
   }
 
   const handleMiss = (id: string) => {
-    setFoods((prev) => prev.filter((f) => f.id !== id))
+    setFoods((prev) => prev.filter((f) => f.id === id))
     setMissed((m) => m + 1)
     setCombo(0)
   }
@@ -343,10 +343,18 @@ function PetDanceGame() {
   const [hits, setHits] = useState(0)
   const [perfectHits, setPerfectHits] = useState(0)
   const { updateScore } = useMiniGameStore()
-  const nowRef = useRef(Date.now())
+  const nowRef = useRef<number>(0)
 
   useEffect(() => {
+    // Update nowRef with current time every 100ms
     const interval = setInterval(() => {
+      nowRef.current = Date.now()
+    }, 100)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    const beatInterval = setInterval(() => {
       const newBeat = {
         id: crypto.randomUUID(),
         time: nowRef.current,
@@ -355,7 +363,7 @@ function PetDanceGame() {
       setBeats((prev) => [...prev.slice(-4), newBeat])
     }, 1000)
 
-    return () => clearInterval(interval)
+    return () => clearInterval(beatInterval)
   }, [])
 
   const handleBeat = (id: string) => {
@@ -370,14 +378,6 @@ function PetDanceGame() {
     if (isPerfect) setPerfectHits((p) => p + 1)
     updateScore(hits * 700 + perfectHits * 30)
   }
-
-  // Update nowRef each render to keep it current
-  useEffect(() => {
-    const interval = setInterval(() => {
-      nowRef.current = Date.now()
-    }, 100)
-    return () => clearInterval(interval)
-  }, [])
 
   return (
     <div className="space-y-4">
