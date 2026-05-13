@@ -99,7 +99,7 @@ export const useSocialStore = create<SocialStore>()(
           if (error) throw error
           
           if (data && data.length > 0) {
-            const friends: Friend[] = data.map((f: any) => ({
+            const friends: Friend[] = data.map((f: { id: string; friend_id: string; profiles: { display_name: string; nickname: string; avatar_url: string | null }; created_at: string }) => ({
               id: f.id, userId: f.friend_id,
               displayName: f.profiles?.display_name || 'Unknown',
               nickname: f.profiles?.nickname || '',
@@ -113,7 +113,7 @@ export const useSocialStore = create<SocialStore>()(
             // Fallback to mock
             set({ friends: MOCK_FRIENDS, isLoading: false })
           }
-        } catch (err) {
+        } catch {
           console.warn('[SocialStore] Using mock data (Supabase unavailable)')
           set({ friends: MOCK_FRIENDS, isLoading: false })
         }
@@ -127,7 +127,7 @@ export const useSocialStore = create<SocialStore>()(
             .eq('status', 'pending')
           
           if (data) {
-            set({ friendRequests: data.map((r: any) => ({
+            set({ friendRequests: data.map((r: { id: string; user_id: string; profiles: { display_name: string; nickname: string }; created_at: string }) => ({
               id: r.id, fromUserId: r.user_id,
               fromDisplayName: r.profiles?.display_name || 'Unknown',
               fromNickname: r.profiles?.nickname || '',
@@ -150,7 +150,7 @@ export const useSocialStore = create<SocialStore>()(
             .limit(10)
           
           if (data) {
-            set({ searchResults: data.map((p: any) => ({
+            set({ searchResults: data.map((p: { id: string; display_name: string; nickname: string; avatar_url: string | null }) => ({
               id: p.id, userId: p.id, displayName: p.display_name,
               nickname: p.nickname || '', avatarUrl: p.avatar_url || null,
               petCount: 0, currentPetName: null, currentPetStage: null,

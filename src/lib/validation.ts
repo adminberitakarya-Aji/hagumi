@@ -274,7 +274,7 @@ export const sanitizePetName = (name: string): string => {
   sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gi, '');
   
   // Remove SQL injection patterns
-  sanitized = sanitized.replace(/['";\-]/g, '');
+  sanitized = sanitized.replace(/['";-]/g, '');
   
   return sanitized;
 };

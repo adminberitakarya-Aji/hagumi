@@ -41,9 +41,11 @@ export interface Visitor {
   visitorId: string
   displayName: string
   avatarUrl: string | null
+  petName: string
   visitedAt: string
   durationSeconds: number
-  leftReaction: ReactionType | null
+  message: string | null
+  reaction: string | null
 }
 
 export type ReactionType = '❤️' | '🌸' | '✨' | '🌟' | '🎀' | '💫'

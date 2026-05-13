@@ -46,8 +46,10 @@ func TestDB_PetCRUD(t *testing.T) {
 	petRepo := db.NewPetRepository(pool)
 
 	// Test Create
+	userID, err := tests.CreateTestUser(ctx)
+	tests.AssertNil(t, err, "User creation should succeed")
+	
 	petID := uuid.New()
-	userID := uuid.New()
 	
 	pet := &db.Pet{
 		ID:     petID,
@@ -102,8 +104,10 @@ func TestDB_Transaction(t *testing.T) {
 	defer tx.Rollback(ctx)
 
 	// Create pet in transaction
+	userID, err := tests.CreateTestUser(ctx)
+	tests.AssertNil(t, err, "User creation should succeed")
+	
 	petID := uuid.New()
-	userID := uuid.New()
 	pet := &db.Pet{
 		ID:     petID,
 		UserID: userID,
@@ -146,10 +150,13 @@ func TestDB_ConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < numPets; i++ {
 		go func(index int) {
+			userID, err := tests.CreateTestUser(ctx)
+			tests.AssertNil(t, err, "User creation should succeed")
+			
 			petID := uuid.New()
 			pet := &db.Pet{
 				ID:     petID,
-				UserID: uuid.New(),
+				UserID: userID,
 				Name:   "Concurrent Pet",
 				Stage:  "alive",
 				Hunger: 50,
@@ -184,10 +191,13 @@ func TestDB_DataConsistency(t *testing.T) {
 	petRepo := db.NewPetRepository(pool)
 
 	// Create pet
+	userID, err := tests.CreateTestUser(ctx)
+	tests.AssertNil(t, err, "User creation should succeed")
+	
 	petID := uuid.New()
 	pet := &db.Pet{
 		ID:     petID,
-		UserID: uuid.New(),
+		UserID: userID,
 		Name:   "Consistency Pet",
 		Stage:  "alive",
 		Hunger: 75,

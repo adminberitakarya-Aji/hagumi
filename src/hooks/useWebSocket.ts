@@ -8,10 +8,11 @@ type WSAction = 'feed' | 'play' | 'rest'
  * Server-authoritative: client hanya mengirim intent, server yang menghitung decay.
  */
 export function useWebSocket() {
-  const { pet, setPet, updateStats } = usePetStore()
+  const { pet, updateStats } = usePetStore()
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const isConnectedRef = useRef(false)
+  const connectRef = useRef<() => void>(() => {})
 
   const connect = useCallback(() => {
     if (isConnectedRef.current) return
@@ -51,7 +52,7 @@ export function useWebSocket() {
         const msg = JSON.parse(event.data)
         
         if (msg.type === 'pet:state_update') {
-          const { stats, stage, dayAge, inGrace } = msg.payload
+          const { stats, stage, dayAge } = msg.payload
           
           // Update store with server-authoritative state
           usePetStore.setState((state) => {
@@ -81,7 +82,7 @@ export function useWebSocket() {
       
       // Auto-reconnect after 3 seconds
       reconnectTimerRef.current = setTimeout(() => {
-        connect()
+        connectRef.current()
       }, 3000)
     }
 
@@ -90,6 +91,8 @@ export function useWebSocket() {
       ws.close()
     }
   }, [pet])
+
+  connectRef.current = connect
 
   const disconnect = useCallback(() => {
     if (reconnectTimerRef.current) {

@@ -1,4 +1,3 @@
-import { PetGenetics } from '@/types'
 
 // ─── Allele System ──────────────────────────────────
 // Mendelian inheritance: dominant (capital) vs recessive (lowercase)
@@ -225,12 +224,6 @@ export function combineGenetics(
   const primaryColor = isMutant
     ? MUTATION_COLORS[Math.floor(Math.random() * MUTATION_COLORS.length)].color
     : (colorMap[expressedPrimary] || parentA.color)
-  
-  const secondaryColor = isMutant
-    ? MUTATION_COLORS[Math.floor(Math.random() * MUTATION_COLORS.length)].color
-    : (colorMap[expressedSecondary] || parentB.color)
-  
-  const pattern = isMutant ? 'cosmic' : (expressedPattern === 'S' ? 'solid' : 'spotted')
   
   // ── Color name ──
   const colorName = isMutant

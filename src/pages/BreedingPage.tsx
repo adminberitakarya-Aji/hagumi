@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useBreedingStore } from '@/stores/breedingStore'
+import { PublicAdultPet, useBreedingStore } from '@/stores/breedingStore'
 import { usePetStore } from '@/stores/petStore'
 import { SceneBackground } from '@/components/layout/SceneBackground'
 import { GeneticsCard, BreedingPreview } from '@/components/genetics'
-import { ChildGenetics } from '@/types/genetics'
+import { ChildGenetics, PetGenetics } from '@/types/genetics'
 import { motion } from 'framer-motion'
 
 export default function BreedingPage() {
   const navigate = useNavigate()
   const { pet } = usePetStore()
   const { publicAdultPets, loadPublicPets, sendBreedRequest } = useBreedingStore()
-  const [selectedPet, setSelectedPet] = useState<any>(null)
+  const [selectedPet, setSelectedPet] = useState<PublicAdultPet | null>(null)
   const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function BreedingPage() {
     alert('Breed request sent! Wait for the other player to accept. 💕')
   }
 
-  const handleSelectPet = (p: any) => {
+  const handleSelectPet = (p: PublicAdultPet) => {
     setSelectedPet(p)
     setShowPreview(true)
   }
@@ -110,7 +110,7 @@ export default function BreedingPage() {
               >
                 <BreedingPreview
                   parent1={pet.genetics}
-                  parent2={selectedPet.genetics}
+                  parent2={selectedPet.genetics as unknown as PetGenetics}
                   onPreview={handlePreviewChild}
                 />
               </motion.div>

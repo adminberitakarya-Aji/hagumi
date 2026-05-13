@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useEconomyStore } from '@/features/economy/economyStore'
 import { GachaItem } from '@/features/economy/types'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function GachaPage() {
-  const { gachaPools, balance, pullGacha, getGachaPool, isLoading } = useEconomyStore()
-  const [selectedPool, setSelectedPool] = useState<any>(null)
+  const { gachaPools, balance, pullGacha } = useEconomyStore()
+  const [selectedPool, setSelectedPool] = useState<{ id: string; name: string; description: string; costGems: number; items: GachaItem[]; pityThreshold: number; guaranteedPityItem: string } | null>(null)
   const [pullCount, setPullCount] = useState(1)
   const [isPulling, setIsPulling] = useState(false)
   const [showResults, setShowResults] = useState(false)
-  const [pullResults, setPullResults] = useState<any>(null)
+  const [pullResults, setPullResults] = useState<{ items: GachaItem[] } | null>(null)
 
   const handlePull = async (count: number) => {
     if (!selectedPool) return
@@ -218,7 +218,7 @@ export default function GachaPage() {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                {pullResults.items.map((item: any, index: number) => (
+                {pullResults.items.map((item: GachaItem, index: number) => (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, scale: 0.5 }}

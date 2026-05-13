@@ -1,19 +1,20 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { motion } from 'framer-motion'
 import { useSocialStore } from './socialStore'
-import { MapPin, Clock, Star, Gift, Heart, MessageSquare, ArrowRight } from 'lucide-react'
+import { MapPin, Clock, Star, Gift, MessageSquare, ArrowRight } from 'lucide-react'
+import { Visitor } from './types'
+
+// For demo/mock purposes
+const MOCK_VISITORS: Visitor[] = [
+  { id: 'v1', visitorId: 'user2', displayName: 'SakuraChan', petName: 'Mochi', visitedAt: new Date(Date.now() - 3600000).toISOString(), durationSeconds: 300, message: 'Your pet is so cute! 🌸', reaction: '❤️', avatarUrl: null },
+  { id: 'v2', visitorId: 'user3', displayName: 'YukiNoir', petName: 'Kuro', visitedAt: new Date(Date.now() - 86400000).toISOString(), durationSeconds: 150, message: 'Left some snacks!', reaction: '✨', avatarUrl: null },
+  { id: 'v3', visitorId: 'user4', displayName: 'HaruMizu', petName: 'Matcha', visitedAt: new Date(Date.now() - 172800000).toISOString(), durationSeconds: 600, message: 'Great genetics!', reaction: '🌟', avatarUrl: null },
+]
 
 const VisitsPage: React.FC = () => {
-  const { recentVisitors, isLoading, recordVisit } = useSocialStore()
+  const { recentVisitors } = useSocialStore()
 
-  // For demo/mock purposes
-  const mockVisitors = [
-    { id: 'v1', userId: 'user2', displayName: 'SakuraChan', petName: 'Mochi', visitedAt: new Date(Date.now() - 3600000).toISOString(), message: 'Your pet is so cute! 🌸', reaction: '❤️' },
-    { id: 'v2', userId: 'user3', displayName: 'YukiNoir', petName: 'Kuro', visitedAt: new Date(Date.now() - 86400000).toISOString(), message: 'Left some snacks!', reaction: '⭐' },
-    { id: 'v3', userId: 'user4', displayName: 'HaruMizu', petName: 'Matcha', visitedAt: new Date(Date.now() - 172800000).toISOString(), message: 'Great genetics!', reaction: '👍' },
-  ]
-
-  const displayVisitors = recentVisitors.length > 0 ? recentVisitors : mockVisitors
+  const displayVisitors = recentVisitors.length > 0 ? recentVisitors : MOCK_VISITORS
 
   return (
     <div className="min-h-screen bg-[#fdf6e3] p-4 md:p-8">
@@ -73,7 +74,7 @@ const VisitsPage: React.FC = () => {
   )
 }
 
-const VisitorCard: React.FC<{ visitor: any; index: number }> = ({ visitor, index }) => (
+const VisitorCard: React.FC<{ visitor: Visitor; index: number }> = ({ visitor, index }) => (
   <motion.div
     initial={{ opacity: 0, x: -20 }}
     animate={{ opacity: 1, x: 0 }}

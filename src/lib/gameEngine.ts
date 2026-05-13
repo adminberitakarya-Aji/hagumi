@@ -1,7 +1,6 @@
 import type {
   GameType,
   GameDifficulty,
-  GameState,
   GameConfig,
   GameSession,
   GameReward,
@@ -176,7 +175,7 @@ export class GameEngine implements IGameEngine {
     this.onUpdate(deltaTime)
   }
 
-  handleInput(input: any): void {
+  handleInput(input: unknown): void {
     if (this.session.state !== 'playing') return
 
     // Game-specific input handling
@@ -228,7 +227,7 @@ export class GameEngine implements IGameEngine {
 
   // ─── Event System ─────────────────────────────────────
 
-  addEvent(type: GameEvent['type'], data?: any): void {
+  addEvent(type: GameEvent['type'], data?: unknown): void {
     this.events.push({
       type,
       timestamp: Date.now(),
@@ -242,11 +241,11 @@ export class GameEngine implements IGameEngine {
 
   // ─── Virtual Methods (to be overridden) ───────────────
 
-  protected onUpdate(deltaTime: number): void {
+  protected onUpdate(_deltaTime: number): void {
     // Override in subclasses
   }
 
-  protected onInput(input: any): void {
+  protected onInput(_input: unknown): void {
     // Override in subclasses
   }
 

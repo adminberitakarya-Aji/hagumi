@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hagumi/game-loop/db"
 	"github.com/hagumi/game-loop/db/migrations"
 )
@@ -141,4 +142,23 @@ func AssertFalse(t *testing.T, condition bool, msg string) {
 	if condition {
 		t.Errorf("%s: expected false, got true", msg)
 	}
+}
+
+// CreateTestUser creates a test user in the database
+func CreateTestUser(ctx context.Context) (uuid.UUID, error) {
+	userID := uuid.New()
+	query := `INSERT INTO users (id, email, username, created_at, updated_at) 
+	          VALUES ($1, $2, $3, $4, $5)`
+	
+	_, err := TestDB.GetPool().Exec(ctx, query, 
+		userID, 
+		"test@example.com", 
+		"testuser_"+userID.String()[:8], 
+		time.Now(), 
+		time.Now(),
+	)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return userID, nil
 }

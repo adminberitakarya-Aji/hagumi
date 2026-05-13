@@ -51,10 +51,10 @@ export function initLocale(): Locale {
  */
 export function t(key: string, params?: Record<string, string | number>): string {
   const keys = key.split('.')
-  let value: any = translations[currentLocale]
+  let value: unknown = translations[currentLocale as Locale]
   
   for (const k of keys) {
-    value = value?.[k]
+    value = (value as Record<string, unknown>)?.[k]
   }
 
   if (typeof value !== 'string') {

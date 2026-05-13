@@ -1,4 +1,4 @@
-import type { Pet, PetGenetics } from '@/types'
+import type { Pet } from '@/types'
 import type {
   PersonalityBehavior,
   AIAction,
@@ -431,7 +431,7 @@ export function makeAIDecision(
   currentState: PetAIState,
   personality: PersonalityBehavior
 ): AIDecision {
-  const { stats, genetics } = pet
+  const { stats } = pet
 
   // Get personality-modified state priorities
   const stateModifier = personality.stateModifiers[currentState] || 0
@@ -439,8 +439,8 @@ export function makeAIDecision(
   const modifiedPriority = basePriority + stateModifier
 
   // Determine best action based on state and personality
-  let action: AIAction | null = null
-  let reasoning = ''
+  let action: AIAction = AI_ACTIONS.rest
+  let reasoning = 'Neutral'
 
   // Urgent needs first
   if (stats.hunger < 30) {
@@ -502,7 +502,7 @@ export function determineEmotion(
 
   let primary = 'neutral'
   let intensity = 0.5
-  let duration = 60 // seconds
+  const duration = 60 // seconds
 
   // Determine primary emotion based on stats
   if (stats.hunger < 20) {
@@ -539,7 +539,7 @@ export function determineEmotion(
 // ─── Learning System ───────────────────────────────────
 
 export function updateAILearning(
-  learning: any,
+  learning: { actionHistory: any[]; preferences: Record<string, number>; learnedBehaviors: string[] },
   action: string,
   result: 'positive' | 'negative' | 'neutral'
 ): any {
@@ -635,9 +635,9 @@ export function tickAI(pet: Pet, ai: PetAI): AITickResult {
 }
 
 function generateAIMessage(
-  pet: Pet,
+  _pet: Pet,
   state: PetAIState,
-  emotion: AIEmotion
+  _emotion: AIEmotion
 ): string {
   const messages: Record<PetAIState, string[]> = {
     idle: ['...', 'What should we do?', 'I\'m here for you!'],

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { SceneBackground } from '@/components/layout/SceneBackground'
@@ -18,86 +18,81 @@ interface Post {
   tags: string[]
 }
 
+// Mock posts data
+const MOCK_POSTS: Post[] = [
+  {
+    id: '1',
+    userId: 'user2',
+    displayName: 'SakuraChan',
+    avatarUrl: null,
+    content: 'Just hatched my first legendary pet! 🎉',
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    likes: 42,
+    comments: 8,
+    shares: 3,
+    type: 'achievement',
+    tags: ['pet', 'legendary', 'first'],
+  },
+  {
+    id: '2',
+    userId: 'user3',
+    displayName: 'YukiNoir',
+    avatarUrl: null,
+    content: 'My Kuro reached adult stage! Time to breed! 🐱',
+    timestamp: new Date(Date.now() - 7200000).toISOString(),
+    likes: 28,
+    comments: 12,
+    shares: 5,
+    type: 'milestone',
+    tags: ['pet', 'growth', 'breeding'],
+  },
+  {
+    id: '3',
+    userId: 'user4',
+    displayName: 'HaruMizu',
+    avatarUrl: null,
+    content: 'Looking for friends to play with! 🎮',
+    timestamp: new Date(Date.now() - 86400000).toISOString(),
+    likes: 15,
+    comments: 3,
+    shares: 2,
+    type: 'social',
+    tags: ['social', 'friends'],
+  },
+  {
+    id: '4',
+    userId: 'user5',
+    displayName: 'Matcha',
+    avatarUrl: null,
+    content: 'Anyone want to trade? Have some rare items! 🎁',
+    timestamp: new Date(Date.now() - 2592000000).toISOString(),
+    likes: 56,
+    comments: 24,
+    shares: 12,
+    type: 'trade',
+    tags: ['trade', 'items', 'rare'],
+  },
+  {
+    id: '5',
+    userId: 'user6',
+    displayName: 'Hana',
+    avatarUrl: null,
+    content: 'Just discovered a new mutation! 🧬',
+    timestamp: new Date(Date.now() - 1209600000).toISOString(),
+    likes: 89,
+    comments: 31,
+    shares: 7,
+    type: 'discovery',
+    tags: ['genetics', 'mutation', 'rare'],
+  },
+]
+
 export function SocialFeed() {
   useSocialStore()
   const [posts, setPosts] = useState<Post[]>([])
   const [filter, setFilter] = useState<'recent' | 'trending' | 'popular'>('recent')
 
-  // Mock posts data
-  const MOCK_POSTS = useMemo<Post[]>(() => [
-    {
-      id: '1',
-      userId: 'user2',
-      displayName: 'SakuraChan',
-      avatarUrl: null,
-      content: 'Just hatched my first legendary pet! 🎉',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      likes: 42,
-      comments: 8,
-      shares: 3,
-      type: 'achievement',
-      tags: ['pet', 'legendary', 'first'],
-    },
-    {
-      id: '2',
-      userId: 'user3',
-      displayName: 'YukiNoir',
-      avatarUrl: null,
-      content: 'My Kuro reached adult stage! Time to breed! 🐱',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      likes: 28,
-      comments: 12,
-      shares: 5,
-      type: 'milestone',
-      tags: ['pet', 'growth', 'breeding'],
-    },
-    {
-      id: '3',
-      userId: 'user4',
-      displayName: 'HaruMizu',
-      avatarUrl: null,
-      content: 'Looking for friends to play with! 🎮',
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
-      likes: 15,
-      comments: 3,
-      shares: 2,
-      type: 'social',
-      tags: ['social', 'friends'],
-    },
-    {
-      id: '4',
-      userId: 'user5',
-      displayName: 'Matcha',
-      avatarUrl: null,
-      content: 'Anyone want to trade? Have some rare items! 🎁',
-      timestamp: new Date(Date.now() - 2592000000).toISOString(),
-      likes: 56,
-      comments: 24,
-      shares: 12,
-      type: 'trade',
-      tags: ['trade', 'items', 'rare'],
-    },
-    {
-      id: '5',
-      userId: 'user6',
-      displayName: 'Hana',
-      avatarUrl: null,
-      content: 'Just discovered a new mutation! 🧬',
-      timestamp: new Date(Date.now() - 1209600000).toISOString(),
-      likes: 89,
-      comments: 31,
-      shares: 7,
-      type: 'discovery',
-      tags: ['genetics', 'mutation', 'rare'],
-    },
-  ], [])
-
-  useEffect(() => {
-    // Load posts from Supabase
-    loadPosts()
-  }, [])
-
-  const loadPosts = async () => {
+  const loadPosts = useCallback(async () => {
     try {
       // Try to load from Supabase
       const { data, error } = await supabase
@@ -109,16 +104,21 @@ export function SocialFeed() {
       if (error) throw error
 
       if (data && data.length > 0) {
-        setPosts(data)
+        setPosts(data as Post[])
       } else {
         // Fallback to mock data
         setPosts(MOCK_POSTS)
       }
-    } catch (err) {
+    } catch {
       console.warn('[SocialFeed] Using mock data (Supabase unavailable)')
       setPosts(MOCK_POSTS)
     }
-  }
+  }, [MOCK_POSTS])
+
+  useEffect(() => {
+    // Load posts from Supabase
+    loadPosts()
+  }, [loadPosts])
 
   const handleLike = (postId: string) => {
     setPosts(prevPosts =>
@@ -128,7 +128,7 @@ export function SocialFeed() {
     )
   }
 
-  const handleComment = (postId: string, comment: string) => {
+  const handleComment = (postId: string) => {
     setPosts(prevPosts =>
       prevPosts.map(post =>
         post.id === postId ? { ...post, comments: post.comments + 1 } : post

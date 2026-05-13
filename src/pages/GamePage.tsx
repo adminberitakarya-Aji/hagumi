@@ -34,8 +34,10 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!pet && !redirecting) {
-      setRedirecting(true)
-      navigate('/egg-select')
+      setTimeout(() => {
+        setRedirecting(true)
+        navigate('/egg-select')
+      }, 0)
     }
   }, [pet, navigate, redirecting])
 

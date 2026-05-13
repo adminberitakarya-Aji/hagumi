@@ -6,7 +6,7 @@
 type AnalyticsEvent = 'session_start' | 'purchase' | 'gacha_pull' | 'pet_interaction' | 'page_view';
 
 interface EventProperties {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 class AnalyticsService {

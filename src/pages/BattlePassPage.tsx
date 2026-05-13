@@ -7,12 +7,9 @@ export default function BattlePassPage() {
     battlePass, 
     balance, 
     loadBattlePass, 
-    addBattlePassXP, 
     claimBattlePassReward, 
     purchaseBattlePassPremium,
-    getBattlePassLevel,
-    isLoading 
-  } = useEconomyStore()
+    getBattlePassLevel,  } = useEconomyStore()
   
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
   const [showRewardModal, setShowRewardModal] = useState(false)
@@ -22,7 +19,7 @@ export default function BattlePassPage() {
     loadBattlePass()
   }, [loadBattlePass])
 
-  const handleClaimReward = async (level: number, isPremium: boolean) => {
+  const handleClaimReward = async (level: number, _isPremium: boolean) => {
     setSelectedLevel(level)
     setShowRewardModal(true)
   }
@@ -55,7 +52,7 @@ export default function BattlePassPage() {
     }
   }
 
-  const getRewardIcon = (reward: any) => {
+  const getRewardIcon = (reward: { type: string }) => {
     switch (reward.type) {
       case 'coins': return '💰'
       case 'gems': return '💎'
