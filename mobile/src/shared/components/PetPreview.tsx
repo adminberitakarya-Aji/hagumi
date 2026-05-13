@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 
 interface PetPreviewProps {
   name: string;
@@ -16,7 +16,7 @@ export const PetPreview: React.FC<PetPreviewProps> = ({
   mood, 
   hunger 
 }) => {
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = React.useMemo(() => new Animated.Value(0), []);
 
   React.useEffect(() => {
     Animated.timing(fadeAnim, {

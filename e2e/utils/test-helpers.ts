@@ -115,9 +115,8 @@ export class TestHelpers {
    */
   async waitForWebSocketConnection() {
     await this.page.waitForFunction(() => {
-      return this.page.evaluate(() => {
-        return (window as any).ws?.readyState === WebSocket.OPEN;
-      });
+      const win = window as Window & { ws?: { readyState: number } };
+      return win.ws?.readyState === 1; // WebSocket.OPEN
     }, { timeout: 5000 });
   }
 

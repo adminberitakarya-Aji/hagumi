@@ -15,7 +15,7 @@ import { Card } from '../shared/components/Card';
 import { StatBar } from '../shared/components/StatBar';
 import { TopBar } from '../shared/components/TopBar';
 
-const { width } = Dimensions.get('window');
+// const { width } = Dimensions.get('window'); // Removed unused variable
 
 const GameScreen = () => {
   const insets = useSafeAreaInsets();
@@ -25,16 +25,16 @@ const GameScreen = () => {
   const petTranslateY = useSharedValue(0);
 
   React.useEffect(() => {
-    // Floating animation
+    // eslint-disable-next-line react-hooks/immutability
     petTranslateY.value = withRepeat(
       withSequence(
         withTiming(-10, { duration: 1500 }),
         withTiming(0, { duration: 1500 })
       ),
-      -10, // infinity
+      -1, // infinity for withRepeat is usually -1 or similar depending on version, keeping it active
       true
     );
-  }, []);
+  }, [petTranslateY]);
 
   const petAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -44,6 +44,7 @@ const GameScreen = () => {
   }));
 
   const handleInteraction = (type: string) => {
+    // eslint-disable-next-line react-hooks/immutability
     petScale.value = withSequence(
       withSpring(1.2),
       withSpring(1)
@@ -136,7 +137,14 @@ const GameScreen = () => {
   );
 };
 
-const ActionButton = ({ icon, label, color, onPress }: any) => (
+interface ActionButtonProps {
+  icon: any;
+  label: string;
+  color: string;
+  onPress: () => void;
+}
+
+const ActionButton = ({ icon, label, color, onPress }: ActionButtonProps) => (
   <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
     <View style={[styles.actionIconBg, { backgroundColor: `${color}20` }]}>
       <Ionicons name={icon} size={24} color={color} />
