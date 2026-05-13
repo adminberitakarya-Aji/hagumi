@@ -9,6 +9,7 @@ interface StatBarProps {
   style?: ViewStyle;
   showValue?: boolean;
   icon?: string;
+  color?: string;
 }
 
 export const StatBar: React.FC<StatBarProps> = ({
@@ -18,9 +19,10 @@ export const StatBar: React.FC<StatBarProps> = ({
   style,
   showValue = true,
   icon,
+  color: customColor,
 }) => {
   const percentage = Math.min(Math.max(value / maxValue, 0), 1);
-  const color = getStatColor(value);
+  const color = customColor || getStatColor(value);
 
   return (
     <View style={[styles.container, style]}>

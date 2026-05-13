@@ -103,10 +103,10 @@ export class TestHelpers {
     const health = await this.page.textContent('[data-stat="health"]');
 
     return {
-      hunger: parseInt(hunger),
-      mood: parseInt(mood),
-      energy: parseInt(energy),
-      health: parseInt(health),
+      hunger: parseInt(hunger || '0'),
+      mood: parseInt(mood || '0'),
+      energy: parseInt(energy || '0'),
+      health: parseInt(health || '0'),
     };
   }
 

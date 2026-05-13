@@ -14,7 +14,7 @@ interface AIDebugViewProps {
 
 export function AIDebugView({ ai, stateInfo, onTick, onReset }: AIDebugViewProps) {
   const [showDetails, setShowDetails] = useState(false)
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     if (!showDetails) return

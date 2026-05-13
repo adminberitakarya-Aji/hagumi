@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
@@ -138,7 +138,7 @@ const GameScreen = () => {
 };
 
 interface ActionButtonProps {
-  icon: any;
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   color: string;
   onPress: () => void;

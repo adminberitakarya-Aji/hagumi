@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useEconomyStore } from '@/features/economy/economyStore'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function DailyRewards() {
-  const { claimDailyReward, getDailyReward, balance } = useEconomyStore()
+  const { claimDailyReward, getDailyReward } = useEconomyStore()
   const [currentDay, setCurrentDay] = useState(1)
   const [isClaiming, setIsClaiming] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [claimedReward, setClaimedReward] = useState<any>(null)
+  const [claimedReward, setClaimedReward] = useState<{ coins: number, gems: number, bonus?: string } | null>(null)
 
   const days = [1, 2, 3, 4, 5, 6, 7]
 
@@ -43,7 +43,6 @@ export default function DailyRewards() {
           const reward = getDailyReward(day)
           const isCurrentDay = day === currentDay
           const isPastDay = day < currentDay
-          const isFutureDay = day > currentDay
 
           return (
             <motion.div
