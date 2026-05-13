@@ -100,6 +100,26 @@ func (m *AuthMiddleware) AuthenticateHTTP(next http.Handler) http.Handler {
 	})
 }
 
+// GetUserIDFromRequest extracts user ID from an HTTP request's Authorization header
+func (m *AuthMiddleware) GetUserIDFromRequest(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return "", ErrMissingToken
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == authHeader {
+		return "", ErrInvalidToken
+	}
+
+	claims, err := m.jwtManager.Verify(token)
+	if err != nil {
+		return "", ErrInvalidToken
+	}
+
+	return claims.UserID, nil
+}
+
 // GetUserID extracts user ID from context
 func GetUserID(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(UserIDKey).(string)

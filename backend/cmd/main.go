@@ -352,15 +352,20 @@ func (e *GameEngine) handleAction(petID string, action string) error {
 
 // handleSyncRequest synchronizes the state for all pets belonging to a user
 func (e *GameEngine) handleSyncRequest(ctx context.Context, userID string) error {
+	uID, err := uuid.Parse(userID)
+	if err != nil {
+		return errors.NewError(errors.ErrCodeInvalidInput, "Invalid user ID")
+	}
+
 	// 1. Find all pets for this user
-	pets, err := e.petRepo.GetByUserID(ctx, userID)
+	pets, err := e.petRepo.GetByUserID(ctx, uID)
 	if err != nil {
 		return errors.NewError(errors.ErrCodeDatabaseError, "Failed to fetch user pets")
 	}
 
 	for _, p := range pets {
 		// Try to get latest state from Redis first (might be more recent than DB)
-		stateJSON, err := e.redis.Get(ctx, "pet_state:"+p.ID).Result()
+		stateJSON, err := e.redis.Get(ctx, "pet_state:"+p.ID.String()).Result()
 		var pet Pet
 		if err == nil {
 			if err := json.Unmarshal([]byte(stateJSON), &pet); err != nil {
@@ -369,14 +374,24 @@ func (e *GameEngine) handleSyncRequest(ctx context.Context, userID string) error
 			}
 		} else {
 			// Fallback to DB state
+			var g genetics.ComplexGenetics
+			json.Unmarshal(p.Genetics, &g)
+			var a ai.AIStateInfo
+			json.Unmarshal(p.AIState, &a)
+
 			pet = Pet{
-				ID:        p.ID,
-				UserID:    p.UserID,
+				ID:        p.ID.String(),
+				UserID:    p.UserID.String(),
 				Name:      p.Name,
 				Stage:     p.Stage,
-				Stats:     PetStats(p.Stats),
-				Genetics:  p.Genetics,
-				AIState:   p.AIState,
+				Stats: PetStats{
+					Hunger: p.Hunger,
+					Mood:   p.Mood,
+					Energy: p.Energy,
+					Health: p.Health,
+				},
+				Genetics:  g,
+				AIState:   a,
 				DayAge:    p.DayAge,
 				BornAt:    p.BornAt,
 				UpdatedAt: p.UpdatedAt,
