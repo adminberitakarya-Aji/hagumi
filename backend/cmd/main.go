@@ -28,6 +28,7 @@ import (
 	"github.com/hagumi/game-loop/social"
 	"github.com/hagumi/game-loop/payments"
 	ws "github.com/hagumi/game-loop/websocket"
+	"github.com/joho/godotenv"
 )
 
 // ─── Types ───────────────────────────────────────────
@@ -620,6 +621,12 @@ func (e *GameEngine) handleCreatePaymentIntent(w http.ResponseWriter, r *http.Re
 // ─── Main ─────────────────────────────────────────────
 
 func main() {
+	// Load environment variables from .env file
+	// Try root and current directory
+	godotenv.Load("../../.env")
+	godotenv.Load("../.env")
+	godotenv.Load(".env")
+
 	// Initialize authentication components
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
