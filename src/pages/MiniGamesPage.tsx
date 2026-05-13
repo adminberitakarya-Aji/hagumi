@@ -240,6 +240,7 @@ function FeedingFrenzyGame() {
     <div className="space-y-4">
       <div className="flex justify-between text-xs text-white/50">
         <span>Fed: {fed}</span>
+        <span>Missed: {missed}</span>
         <span>Combo: {combo}x</span>
       </div>
       <div className="relative w-full h-[300px] glass rounded-2xl overflow-hidden" ref={containerRef}>
@@ -342,12 +343,13 @@ function PetDanceGame() {
   const [hits, setHits] = useState(0)
   const [perfectHits, setPerfectHits] = useState(0)
   const { updateScore } = useMiniGameStore()
+  const nowRef = useRef(Date.now())
 
   useEffect(() => {
     const interval = setInterval(() => {
       const newBeat = {
         id: crypto.randomUUID(),
-        time: Date.now(),
+        time: nowRef.current,
         hit: false,
       }
       setBeats((prev) => [...prev.slice(-4), newBeat])
@@ -360,7 +362,7 @@ function PetDanceGame() {
     const beat = beats.find((b) => b.id === id)
     if (!beat || beat.hit) return
 
-    const timeDiff = Date.now() - beat.time
+    const timeDiff = nowRef.current - beat.time
     const isPerfect = timeDiff < 200
 
     setBeats((prev) => prev.map((b) => (b.id === id ? { ...b, hit: true } : b)))
@@ -368,6 +370,14 @@ function PetDanceGame() {
     if (isPerfect) setPerfectHits((p) => p + 1)
     updateScore(hits * 700 + perfectHits * 30)
   }
+
+  // Update nowRef each render to keep it current
+  useEffect(() => {
+    const interval = setInterval(() => {
+      nowRef.current = Date.now()
+    }, 100)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="space-y-4">
