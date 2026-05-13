@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hagumi/game-loop/db"
+	"github.com/hagumi/game-loop/db/migrations"
 )
 
 // TestDB holds the test database instance
@@ -33,7 +34,7 @@ func SetupTestDB() {
 		Host:     getEnv("TEST_DB_HOST", "localhost"),
 		Port:     getEnv("TEST_DB_PORT", "5432"),
 		User:     getEnv("TEST_DB_USER", "postgres"),
-		Password: getEnv("TEST_DB_PASSWORD", ""),
+		Password: getEnv("TEST_DB_PASSWORD", "password"), // Default for CI
 		Database: getEnv("TEST_DB_NAME", "hagumi_test"),
 		SSLMode:  getEnv("TEST_DB_SSLMODE", "disable"),
 	}
@@ -45,7 +46,33 @@ func SetupTestDB() {
 	}
 
 	// Run test migrations
-	// Note: In production, you'd have separate test migrations
+	migrationRunner := migrations.NewRunner(TestDB.GetPool())
+	
+	// Try to find migrations directory relative to common test execution points
+	migrationDirs := []string{
+		"../db/migrations",      // Called from backend/tests/
+		"../../db/migrations",   // Called from backend/tests/integration/
+		"db/migrations",         // Called from backend/
+		"backend/db/migrations", // Called from root
+	}
+
+	var loaded bool
+	for _, dir := range migrationDirs {
+		if _, err := os.Stat(dir); err == nil {
+			if err := migrationRunner.LoadMigrations(dir); err == nil {
+				loaded = true
+				break
+			}
+		}
+	}
+
+	if !loaded {
+		panic("Failed to find or load migrations directory in any of the expected locations")
+	}
+
+	if err := migrationRunner.Up(context.Background()); err != nil {
+		panic("Failed to run test migrations: " + err.Error())
+	}
 }
 
 // CleanupTestDB closes the test database connection
