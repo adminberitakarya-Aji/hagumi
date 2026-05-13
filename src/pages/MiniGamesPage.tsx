@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMiniGameStore } from '@/features/minigames/minigameStore'
 import { useContentStore } from '@/features/content/contentStore'
 import { SceneBackground } from '@/components/layout/SceneBackground'
-import type { MiniGameId, MiniGameDifficulty } from '@/features/minigames/types'
+import type { MiniGameId, MiniGameDifficulty, PlayerInput, Reward } from '@/features/minigames/types'
 
 // ─── Game Select Card ─────────────────────────────────
 
@@ -435,7 +435,7 @@ export default function MiniGamesPage() {
   const [difficulty] = useState<MiniGameDifficulty>('easy')
   const [gameInput, setGameInput] = useState<unknown>(null)
   const [showResults, setShowResults] = useState(false)
-  const [rewards, setRewards] = useState<unknown[]>([])
+  const [rewards, setRewards] = useState<Reward[]>([])
 
   const games: MiniGameId[] = ['sakura-catch', 'memory-match', 'feeding-frenzy', 'hide-seek', 'pet-dance']
 
@@ -446,7 +446,7 @@ export default function MiniGamesPage() {
 
   const handleEndGame = (input: unknown) => {
     setGameInput(input)
-    const earnedRewards = endGame(input as any)
+    const earnedRewards = endGame(input as PlayerInput)
     setRewards(earnedRewards)
     setShowResults(true)
     updateProgress('games_played', 1)
@@ -512,7 +512,7 @@ export default function MiniGamesPage() {
             {rewards.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-bold text-white/70">Rewards:</p>
-                {rewards.map((reward: any, i: number) => (
+                {rewards.map((reward: Reward, i: number) => (
                   <div key={i} className="text-sm text-white">
                     {reward.type === 'coins' && `💰 ${reward.amount} coins`}
                     {reward.type === 'gems' && `💎 ${reward.amount} gems`}

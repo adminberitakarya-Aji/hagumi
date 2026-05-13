@@ -152,7 +152,7 @@ func CreateTestUser(ctx context.Context) (uuid.UUID, error) {
 	
 	_, err := TestDB.GetPool().Exec(ctx, query, 
 		userID, 
-		"test@example.com", 
+		"test_"+userID.String()[:8]+"@example.com", 
 		"testuser_"+userID.String()[:8], 
 		time.Now(), 
 		time.Now(),

@@ -181,6 +181,7 @@ func (r *PetRepository) Update(ctx context.Context, pet *Pet) error {
 		pet.Stage,
 		pet.Hunger,
 		pet.Mood,
+		pet.Energy,
 		pet.Health,
 		pet.DayAge,
 		pet.Genetics,
