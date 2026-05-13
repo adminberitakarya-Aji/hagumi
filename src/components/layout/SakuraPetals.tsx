@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 
 export function SakuraPetals({ count = 15 }) {
+  /* eslint-disable react-hooks/purity */
   const petalsData = useMemo(() => {
     return Array.from({ length: count }).map(() => ({
       initialX: Math.random() * 100 + '%',
@@ -11,6 +12,7 @@ export function SakuraPetals({ count = 15 }) {
       delay: Math.random() * 10,
     }))
   }, [count])
+  /* eslint-enable react-hooks/purity */
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-10">

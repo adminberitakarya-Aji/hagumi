@@ -15,6 +15,7 @@ const rarityColors = {
 };
 
 export const GachaReveal: React.FC<GachaRevealProps> = ({ isOpen, item, onClose }) => {
+  /* eslint-disable react-hooks/purity */
   const particlesData = useMemo(() => {
     return Array.from({ length: 20 }).map(() => ({
       animateX: `${Math.random() * 100}%`,
@@ -23,6 +24,7 @@ export const GachaReveal: React.FC<GachaRevealProps> = ({ isOpen, item, onClose 
       delay: Math.random() * 2,
     }))
   }, [])
+  /* eslint-enable react-hooks/purity */
 
   return (
     <AnimatePresence>

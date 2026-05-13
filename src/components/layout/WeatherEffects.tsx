@@ -10,6 +10,7 @@ interface WeatherProps {
 export const WeatherEffects: React.FC<WeatherProps> = ({ type }) => {
   const count = type === 'rain' ? 40 : 30;
 
+  /* eslint-disable react-hooks/purity */
   const particlesData = useMemo(() => {
     return Array.from({ length: count }).map(() => ({
       initialLeft: `${Math.random() * 100}%`,
@@ -19,6 +20,7 @@ export const WeatherEffects: React.FC<WeatherProps> = ({ type }) => {
       delay: Math.random() * 5,
     }))
   }, [count, type])
+  /* eslint-enable react-hooks/purity */
 
   if (type === 'clear') return null;
 

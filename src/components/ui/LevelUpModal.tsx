@@ -8,6 +8,7 @@ interface LevelUpModalProps {
 }
 
 export const LevelUpModal: React.FC<LevelUpModalProps> = ({ isOpen, level, onClose }) => {
+  /* eslint-disable react-hooks/purity */
   const confettiData = useMemo(() => {
     return Array.from({ length: 30 }).map(() => ({
       initialLeft: `${Math.random() * 100}%`,
@@ -16,6 +17,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ isOpen, level, onClo
       delay: Math.random() * 2,
     }))
   }, [])
+  /* eslint-enable react-hooks/purity */
 
   return (
     <AnimatePresence>

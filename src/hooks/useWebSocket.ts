@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { usePetStore } from '@/stores/petStore'
 
 type WSAction = 'feed' | 'play' | 'rest'
@@ -12,6 +12,7 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const isConnectedRef = useRef(false)
+  const [isConnected, setIsConnected] = useState(false)
   const connectRef = useRef<() => void>(() => {})
 
   const connect = useCallback(() => {
@@ -27,6 +28,7 @@ export function useWebSocket() {
     ws.onopen = () => {
       console.log('[WS] Connected')
       isConnectedRef.current = true
+      setIsConnected(true)
 
       // Register current pet to server
       if (pet) {
@@ -79,6 +81,7 @@ export function useWebSocket() {
     ws.onclose = () => {
       console.log('[WS] Disconnected')
       isConnectedRef.current = false
+      setIsConnected(false)
       
       // Auto-reconnect after 3 seconds
       reconnectTimerRef.current = setTimeout(() => {
@@ -92,13 +95,16 @@ export function useWebSocket() {
     }
   }, [pet])
 
-  connectRef.current = connect
+  useEffect(() => {
+    connectRef.current = connect
+  }, [connect])
 
   const disconnect = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current)
     }
     isConnectedRef.current = false
+    setIsConnected(false)
     wsRef.current?.close()
     wsRef.current = null
   }, [])
@@ -127,5 +133,5 @@ export function useWebSocket() {
     return () => disconnect()
   }, [connect, disconnect])
 
-  return { sendAction, isConnected: isConnectedRef.current, reconnect: connect }
+  return { sendAction, isConnected, reconnect: connect }
 }
