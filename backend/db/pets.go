@@ -52,7 +52,7 @@ func (r *PetRepository) Create(ctx context.Context, pet *Pet) error {
 			id, user_id, name, stage, hunger, mood, energy, health,
 			complex_genetics, ai_state, day_age, born_at, is_active
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-		RETURNING id, created_at, updated_at
+		RETURNING id, born_at, updated_at
 	`
 
 	err := r.pool.QueryRow(ctx, query,
@@ -120,7 +120,7 @@ func (r *PetRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]*P
 			   complex_genetics, ai_state, day_age, born_at, updated_at, is_active
 		FROM pets
 		WHERE user_id = $1 AND is_active = true
-		ORDER BY created_at DESC
+		ORDER BY born_at DESC
 	`
 
 	rows, err := r.pool.Query(ctx, query, userID)
@@ -265,7 +265,7 @@ func (r *PetRepository) GetAll(ctx context.Context) ([]*Pet, error) {
 			   complex_genetics, ai_state, day_age, born_at, updated_at, is_active
 		FROM pets
 		WHERE is_active = true
-		ORDER BY created_at DESC
+		ORDER BY born_at DESC
 		LIMIT 1000
 	`
 
