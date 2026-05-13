@@ -1,13 +1,16 @@
 package logging
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +25,23 @@ const (
 	LevelFatal
 )
 
+func (l LogLevel) String() string {
+	switch l {
+	case LevelDebug:
+		return "DEBUG"
+	case LevelInfo:
+		return "INFO"
+	case LevelWarning:
+		return "WARNING"
+	case LevelError:
+		return "ERROR"
+	case LevelFatal:
+		return "FATAL"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // Logger provides structured logging functionality
 type Logger struct {
 	level      LogLevel
@@ -34,124 +54,72 @@ type Logger struct {
 type LogFormat string
 
 const (
-	FormatJSON LogFormat = "json"
-	FormatText LogFormat = "text"
+	FormatJSON        LogFormat = "json"
+	FormatText        LogFormat = "text"
 	FormatDevelopment LogFormat = "dev"
 )
 
 // LogConfig holds logger configuration
 type LogConfig struct {
-	Level       LogLevel
-	Format      LogFormat
-	Output      string // "stdout", "file", or "both"
-	Directory   string // Directory for log files
-	MaxSize     int64  // Max file size in bytes
-	MaxBackups   int    // Number of backup files
-	MaxAge      int    // Max age of log files in hours
+	Level      LogLevel
+	Format     LogFormat
+	Output     string // "stdout", "file", or "both"
+	Directory  string // Directory for log files
+	MaxSize    int64  // Max file size in bytes
+	MaxBackups int    // Number of backup files
+	MaxAge     int    // Max age of log files in hours
 }
 
 // DefaultLogConfig returns default logger configuration
 func DefaultLogConfig() *LogConfig {
 	return &LogConfig{
-	Level:     LevelInfo,
-		Format:    FormatJSON,
-		Output:    "stdout",
-		Directory: "./logs",
-		MaxSize:   10 * 1024 * 1024, // 10MB
+		Level:      LevelInfo,
+		Format:     FormatJSON,
+		Output:     "stdout",
+		Directory:  "./logs",
+		MaxSize:    10 * 1024 * 1024, // 10MB
 		MaxBackups: 5,
-		MaxAge:    24 * 7, // 7 days
+		MaxAge:     24 * 7, // 7 days
 	}
 }
 
 // NewLogger creates a new logger
 func NewLogger(config *LogConfig) (*Logger, error) {
-	logger := log.New()
-	
-	// Set log level
-	logger.SetLevel(config.Level)
-	
-	// Set formatter based on format
-	switch config.Format {
-	case FormatJSON:
-		logger.SetFormatter(&JSONFormatter{})
-	case FormatText:
-		logger.SetFormatter(&TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05.000",
-		})
-	case FormatDevelopment:
-		logger.SetFormatter(&TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05.000",
-			ColorizeLevel: true,
-		ForceColors:   true,
-		DisableColors: false,
-	})
-	default:
-		logger.SetFormatter(&TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05.000",
-		})
-	}
-	
-	// Set output destination
-	switch config.Output {
-	case "file":
-		// Create logs directory if it doesn't exist
+	var out io.Writer = os.Stdout
+
+	var fileWriter *os.File
+	if config.Output == "file" || config.Output == "both" {
 		if err := os.MkdirAll(config.Directory, 0755); err != nil {
-			return fmt.Errorf("failed to create logs directory: %w", err)
+			return nil, fmt.Errorf("failed to create logs directory: %w", err)
 		}
-		
-		// Open log file
 		logFile := filepath.Join(config.Directory, "hagumi.log")
-		fileWriter, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		var err error
+		fileWriter, err = os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to open log file: %w", err)
+			return nil, fmt.Errorf("failed to open log file: %w", err)
 		}
-		
-		// Set multi-writer for stdout
-		logger.SetOutput(io.MultiWriter(fileWriter, os.Stdout))
-		
-	case "both":
-		// Create logs directory if it doesn't exist
-		if err := os.MkdirAll(config.Directory, 0755); err != nil {
-			return fmt.Errorf("failed to create logs directory: %w", err)
+
+		if config.Output == "both" {
+			out = io.MultiWriter(os.Stdout, fileWriter)
+		} else {
+			out = fileWriter
 		}
-		
-		// Open log file
-		logFile := filepath.Join(config.Directory, "hagumi.log")
-		fileWriter, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			return fmt.Errorf("failed to open log file: %w", err)
-		}
-		
-		// Set multi-writer for stdout and file
-		logger.SetOutput(io.MultiWriter(fileWriter, os.Stdout))
-		
-	case "stdout":
-		// Just use stdout
-		logger.SetOutput(os.Stdout)
 	}
-	
+
 	return &Logger{
-		level:     config.Level,
-		output:    logger,
+		level:      config.Level,
+		output:     log.New(out, "", 0),
 		fileWriter: fileWriter,
-	}
+	}, nil
 }
 
 // Close closes the logger and any open files
 func (l *Logger) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.fileWriter != nil {
-		if err := l.fileWriter.Close(); err != nil {
-			log.Printf("[Logger] Failed to close log file: %v", err)
-		}
+		return l.fileWriter.Close()
 	}
-	
-	if l.output != nil {
-		l.output.Close()
-	}
-	
 	return nil
 }
 
@@ -162,1739 +130,100 @@ func (l *Logger) SetLevel(level LogLevel) {
 	l.level = level
 }
 
-// GetLevel returns the current logging level
-func (l *Logger) GetLevel() LogLevel {
+// log handles the core logging logic
+func (l *Logger) log(level LogLevel, message string, fields map[string]interface{}) {
 	l.mu.RLock()
-	defer l.mu.RUnlock()
-	return l.level
-}
-
-// SetFormat sets the log format
-func (l *Logger) SetFormat(format LogFormat) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	
-	switch format {
-	case FormatJSON:
-		l.output.SetFormatter(&JSONFormatter{})
-	case FormatText:
-		l.output.SetFormatter(&TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05.000",
-		})
-	case FormatDevelopment:
-		l.output.SetFormatter(&TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05.000",
-			ColorizeLevel: true,
-			ForceColors:   true,
-			DisableColors: false,
-		})
-	default:
-		return fmt.Errorf("unsupported log format: %s", format)
+	if level < l.level {
+		l.mu.RUnlock()
+		return
 	}
-	
-	return nil
-}
+	l.mu.RUnlock()
 
-// SetOutput sets the log output destination
-func (l *Logger) SetOutput(output string) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	_, file, line, _ := runtime.Caller(2)
 	
-	switch output {
-	case "file":
-		// Create logs directory if it doesn't exist
-		if err := os.MkdirAll("./logs", 0755); err != nil {
-			return fmt.Errorf("failed to create logs directory: %w", err)
-		}
-		
-		// Open log file
-		logFile := "./logs/hagumi.log"
-		fileWriter, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			return fmt.Errorf("failed to open log file: %w", err)
-		}
-		
-		// Set multi-writer for file
-		l.output.SetOutput(io.MultiWriter(fileWriter, os.Stdout))
-		
-	case "both":
-		// Create logs directory if it doesn't exist
-		if err := os.MkdirAll("./logs", 0755); err != nil {
-			return fmt.Errorf("failed to create logs directory: %w", err)
-		}
-		
-		// Open log file
-		logFile := "./logs/hagumi.log"
-		fileWriter, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			return fmt.Errorf("failed to open log file: %w", err)
-		}
-		
-		// Set multi-writer for stdout and file
-		l.output.SetOutput(io.MultiWriter(fileWriter, os.Stdout))
-		
-	case "stdout":
-		// Just use stdout
-		l.output.SetOutput(os.Stdout)
-		
-	default:
-		return fmt.Errorf("unsupported output destination: %s", output)
+	entry := map[string]interface{}{
+		"timestamp": time.Now().Format(time.RFC3339),
+		"level":     level.String(),
+		"message":   message,
+		"file":      fmt.Sprintf("%s:%d", filepath.Base(file), line),
 	}
-	
-	return nil
+
+	for k, v := range fields {
+		entry[k] = v
+	}
+
+	data, _ := json.Marshal(entry)
+	l.output.Println(string(data))
 }
 
-// Log logs a message at Info level
-func (l *Logger) Log(message string) {
-	l.log(LevelInfo, message)
-}
-
-// LogDebug logs a message at Debug level
-func (l *Logger) LogDebug(message string) {
-	l.log(LevelDebug, message)
-}
-
-// LogInfo logs a message at Info level
-func (l *Logger) LogInfo(message string) {
-	l.log(LevelInfo, message)
-}
-
-// LogWarning logs a message at Warning level
-func (l *Logger) LogWarning(message string) {
-	l.log(LevelWarning, message)
-}
-
-// LogError logs a message at Error level
-func (l *Logger) LogError(message string) {
-	l.log(LevelError, message)
-}
-
-// LogFatal logs a message at Fatal level and exits
-func (l *Logger) LogFatal(message string) {
-	l.log(LevelFatal, message)
+// Public logging methods
+func (l *Logger) LogDebug(msg string) { l.log(LevelDebug, msg, nil) }
+func (l *Logger) LogInfo(msg string)  { l.log(LevelInfo, msg, nil) }
+func (l *Logger) LogWarning(msg string) { l.log(LevelWarning, msg, nil) }
+func (l *Logger) LogError(msg string) { l.log(LevelError, msg, nil) }
+func (l *Logger) LogFatal(msg string) {
+	l.log(LevelFatal, msg, nil)
 	os.Exit(1)
 }
 
-// log logs a message at the specified level
-func (l *Logger) log(level LogLevel, message string) {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	
-	// Check if level is enabled
-	if level < l.level {
-		return
+func (l *Logger) LogWithFields(level LogLevel, msg string, fields map[string]interface{}) {
+	l.log(level, msg, fields)
+}
+
+// Compatibility methods for LoggerInterface
+func (l *Logger) Info(msg string)    { l.LogInfo(msg) }
+func (l *Logger) Warning(msg string) { l.LogWarning(msg) }
+func (l *Logger) Debug(msg string)   { l.LogDebug(msg) }
+func (l *Logger) Error(err error, r *http.Request) {
+	fields := map[string]interface{}{}
+	if r != nil {
+		fields["method"] = r.Method
+		fields["url"] = r.URL.String()
+		fields["remote_addr"] = r.RemoteAddr
 	}
-	
-	// Get caller information
-	_, file, line, ok := runtime.Caller(skip)
-	if !ok {
-		file = "unknown"
-		line = 0
+	l.log(LevelError, err.Error(), fields)
+}
+func (l *Logger) Panic(err interface{}, r *http.Request) {
+	fields := map[string]interface{}{"panic": true}
+	if r != nil {
+		fields["method"] = r.Method
+		fields["url"] = r.URL.String()
 	}
-	
-	// Get user ID from context if available
-	userID := "system"
-	if userID := l.output.(*os.File).String(); userID != "" {
-		userID = userID
-	}
-	
-	// Get method and path from context if available
-	method := "unknown"
-	path := "unknown"
-	if userID := l.output.(*os.File).String(); userID != "" {
-		method = "GET"
-		path = "/health"
-	}
-	
-	// Format message with timestamp
-	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
-	
-	// Log the message
-	switch level {
-	case LevelDebug:
-		l.output.Printf("[%s] %s %s %s %s %s %s\n",
-			timestamp, level, userID, method, path, file, line, message)
-	case LevelInfo:
-		l.output.Printf("[%s] %s %s %s %s %s %s\n",
-			timestamp, level, userID, method, path, file, line, message)
-	case LevelWarning:
-		l.output.Printf("[%s] %s %s %s %s %s %s\n",
-			timestamp, level, userID, method, path, file, line, message)
-	case LevelError:
-		l.output.Printf("[%s] %s %s %s %s %s %s\n",
-			timestamp, level, userID, method, path, file, line, message)
-	case LevelFatal:
-		l.output.Printf("[%s] %s %s %s %s %s %s\n",
-			timestamp, level, userID, method, path, file, line, message)
-	}
+	l.log(LevelError, fmt.Sprintf("%v", err), fields)
 }
+func (l *Logger) InfoWithFields(msg string, f map[string]interface{})    { l.log(LevelInfo, msg, f) }
+func (l *Logger) WarningWithFields(msg string, f map[string]interface{}) { l.log(LevelWarning, msg, f) }
+func (l *Logger) ErrorWithFields(err error, f map[string]interface{})    { l.log(LevelError, err.Error(), f) }
+func (l *Logger) DebugWithFields(msg string, f map[string]interface{})   { l.log(LevelDebug, msg, f) }
 
-// LogWithFields logs a message with additional fields
-func (l *Logger) LogWithFields(level LogLevel, message string, fields map[string]interface{}) {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	
-	// Check if level is enabled
-	if level < l.level {
-		return
-	}
-	
-	// Get caller information
-	_, file, line, ok := runtime.Caller(skip)
-	if !ok {
-		file = "unknown"
-		line = 0
-	}
-	
-	// Get user ID from context if available
-	userID := "system"
-	if userID := l.output.(*os.File).String(); userID != "" {
-		userID = userID
-	}
-	
-	// Get method and path from context if available
-	method := "unknown"
-	path := "unknown"
-	if userID := l.output.(*os.File).String(); userID != "" {
-		method = "GET"
-		path = "/health"
-	}
-	
-	// Format message with timestamp
-	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
-	
-	// Log the message with fields
-	switch level {
-	case LevelDebug:
-		l.output.Printf("[%s] %s %s %s %s %s %s %+v\n",
-			timestamp, level, userID, method, path, file, line, message, fields)
-	case LevelInfo:
-		l.output.Printf("[%s] %s %s %s %s %s %s %+v\n",
-			timestamp, level, userID, method, path, file, line, message, fields)
-	case LevelWarning:
-		l.output.Printf("[%s] %s %s %s %s %s %s %+v\n",
-			timestamp, level, userID, method, path, file, line, message, fields)
-	case LevelError:
-		l.output.Printf("[%s] %s %s %s %s %s %s %+v\n",
-			timestamp, level, userID, method, path, file, line, message, fields)
-	case LevelFatal:
-		l.output.Printf("[%s] %s %s %s %s %s %s %+v\n",
-			timestamp, level, userID, method, path, file, line, message, fields)
-	}
+// Methods used in existing code
+func (l *Logger) LogWithUserID(level LogLevel, userID, msg string) {
+	l.log(level, msg, map[string]interface{}{"user_id": userID})
 }
-
-// LogWithUserID logs a message with user ID
-func (l *Logger) LogWithUserID(level LogLevel, userID, message string) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id": userID,
-	})
-}
-
-// LogWithRequestID logs a message with request ID
-func (l *Logger) LogWithRequestID(level LogLevel, requestID, message string) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-	})
-}
-
-// LogWithUserIDAndRequestID logs a message with user ID and request ID
-func (l *Logger) LogWithUserIDAndRequestID(level LogLevel, userID, requestID, message string) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with request ID and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
+func (l *Logger) LogWithRequestID(level LogLevel, reqID, msg string) {
+	l.log(level, msg, map[string]interface{}{"request_id": reqID})
 }
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"fields":     fields,
-	})
-}
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
+func (l *Logger) LogWithUserIDAndRequestID(level LogLevel, userID, reqID, msg string) {
+	l.log(level, msg, map[string]interface{}{"user_id": userID, "request_id": reqID})
 }
-
-// LogWithRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
-}
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
+func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, reqID, msg string, f map[string]interface{}) {
+	if f == nil { f = make(map[string]interface{}) }
+	f["user_id"] = userID
+	f["request_id"] = reqID
+	l.log(level, msg, f)
 }
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
+func (l *Logger) LogWithUserIDAndFields(level LogLevel, userID, msg string, f map[string]interface{}) {
+	if f == nil { f = make(map[string]interface{}) }
+	f["user_id"] = userID
+	l.log(level, msg, f)
 }
-
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
+func (l *Logger) LogWithRequestIDAndFields(level LogLevel, reqID, msg string, f map[string]interface{}) {
+	if f == nil { f = make(map[string]interface{}) }
+	f["request_id"] = reqID
+	l.log(level, msg, f)
 }
 
-// LogWithUserIDRequestIDAndFields logs a message with user ID, request ID, and additional fields
-func (l *Logger) LogWithUserIDRequestIDAndFields(level LogLevel, userID, requestID, message string, fields map[string]interface{}) {
-	l.logWithFields(level, message, map[string]interface{}{
-		"user_id":    userID,
-		"request_id": requestID,
-		"fields":     fields,
-	})
+// For context-based logging
+func (l *Logger) WithContext(ctx context.Context) *Logger {
+	return l // Placeholder
 }
-
-}

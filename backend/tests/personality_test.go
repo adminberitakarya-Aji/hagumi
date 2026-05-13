@@ -1,9 +1,10 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 
-	"hagumi/game-loop/config"
+	"github.com/hagumi/game-loop/config"
 )
 
 // TestPersonality_Existence tests that all personalities exist
@@ -288,8 +289,8 @@ func TestPersonality_UniqueCharacteristics(t *testing.T) {
 				p1.Energy == p2.Energy
 
 			AssertFalse(t, isIdentical, 
-				"Personalities should have unique multipliers: %s and %s", 
-				personalities[i], personalities[j])
+				fmt.Sprintf("Personalities should have unique multipliers: %s and %s", 
+				personalities[i], personalities[j]))
 		}
 	}
 }

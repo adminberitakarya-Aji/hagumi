@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hagumi/game-loop/db"
-	"github.com/hagumi/game-loop/config"
 )
 
 // TestDB holds the test database instance
@@ -16,19 +15,19 @@ var TestDB *db.Database
 // TestMain sets up the test database before running tests
 func TestMain(m *testing.M) {
 	// Set up test database
-	setupTestDB()
+	SetupTestDB()
 	
 	// Run tests
 	code := m.Run()
 	
 	// Cleanup
-	cleanupTestDB()
+	CleanupTestDB()
 	
 	os.Exit(code)
 }
 
-// setupTestDB initializes the test database
-func setupTestDB() {
+// SetupTestDB initializes the test database
+func SetupTestDB() {
 	// Use test database configuration
 	testDBConfig := &db.DBConfig{
 		Host:     getEnv("TEST_DB_HOST", "localhost"),
@@ -49,8 +48,8 @@ func setupTestDB() {
 	// Note: In production, you'd have separate test migrations
 }
 
-// cleanupTestDB closes the test database connection
-func cleanupTestDB() {
+// CleanupTestDB closes the test database connection
+func CleanupTestDB() {
 	if TestDB != nil {
 		TestDB.Close()
 	}

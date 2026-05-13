@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"hagumi/game-loop/config"
+	"github.com/hagumi/game-loop/config"
 )
 
 // TestGameEngine_Tick tests the game tick functionality

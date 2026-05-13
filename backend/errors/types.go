@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -255,7 +256,7 @@ func getDefaultStatusCode(code ErrorCode) int {
 	switch code {
 	case ErrCodeAuthRequired, ErrCodeUnauthorized, ErrCodeSessionExpired:
 		return http.StatusUnauthorized
-	case ErrCodeInvalidToken, ErrCodeInvalidInput, ErrInvalidFormat:
+	case ErrCodeInvalidToken, ErrCodeInvalidInput, ErrCodeInvalidFormat:
 		return http.StatusBadRequest
 	case ErrCodeDatabaseError, ErrCodeConnectionFailed, ErrCodeQueryFailed, ErrCodeTransactionFailed:
 		return http.StatusInternalServerError

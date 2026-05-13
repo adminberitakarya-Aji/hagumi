@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"hagumi/game-loop/config"
+	"github.com/hagumi/game-loop/config"
 )
 
 // TestDecay_CalculateHungerDecay tests hunger decay calculation

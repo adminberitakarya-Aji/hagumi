@@ -1,12 +1,13 @@
 package integration
 
 import (
-	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
-	"hagumi/game-loop/db"
-	"hagumi/game-loop/tests"
+	"github.com/google/uuid"
+	"github.com/hagumi/game-loop/db"
+	"github.com/hagumi/game-loop/tests"
 )
 
 // TestDB_Connection tests database connection
@@ -45,30 +46,23 @@ func TestDB_PetCRUD(t *testing.T) {
 	petRepo := db.NewPetRepository(pool)
 
 	// Test Create
-	petID := "test-pet-123"
-	userID := "test-user-456"
+	petID := uuid.New()
+	userID := uuid.New()
 	
 	pet := &db.Pet{
 		ID:     petID,
 		UserID: userID,
 		Name:   "Test Pet",
 		Stage:  "alive",
-		Stats: db.PetStats{
-			Hunger: 80,
-			Mood:   75,
-			Energy: 90,
-			Health: 100,
-		},
-		Genetics: db.PetGenetics{
-			BaseHungerRate: 1.0,
-			BaseMoodRate:   1.0,
-			BaseEnergyRate: 1.0,
-			GrowthSpeed:    1.0,
-			Personality:    "playful",
-		},
+		Hunger: 80,
+		Mood:   75,
+		Energy: 90,
+		Health: 100,
+		Genetics: json.RawMessage(`{"personality": "playful"}`),
 		DayAge:    1,
 		BornAt:    time.Now(),
 		UpdatedAt: time.Now(),
+		IsActive:  true,
 	}
 
 	err := petRepo.Create(ctx, pet)
@@ -81,7 +75,7 @@ func TestDB_PetCRUD(t *testing.T) {
 	tests.AssertEqual(t, pet.Name, retrievedPet.Name, "Pet name should match")
 
 	// Test Update
-	pet.Stats.Hunger = 90
+	pet.Hunger = 90
 	err = petRepo.Update(ctx, pet)
 	tests.AssertNil(t, err, "Pet update should succeed")
 
@@ -108,28 +102,22 @@ func TestDB_Transaction(t *testing.T) {
 	defer tx.Rollback(ctx)
 
 	// Create pet in transaction
-	petID := "test-pet-tx-123"
+	petID := uuid.New()
+	userID := uuid.New()
 	pet := &db.Pet{
 		ID:     petID,
-		UserID: "test-user-tx-456",
+		UserID: userID,
 		Name:   "Transaction Pet",
 		Stage:  "alive",
-		Stats: db.PetStats{
-			Hunger: 50,
-			Mood:   50,
-			Energy: 50,
-			Health: 50,
-		},
-		Genetics: db.PetGenetics{
-			BaseHungerRate: 1.0,
-			BaseMoodRate:   1.0,
-			BaseEnergyRate: 1.0,
-			GrowthSpeed:    1.0,
-			Personality:    "playful",
-		},
+		Hunger: 50,
+		Mood:   50,
+		Energy: 50,
+		Health: 50,
+		Genetics: json.RawMessage(`{"personality": "playful"}`),
 		DayAge:    0,
 		BornAt:    time.Now(),
 		UpdatedAt: time.Now(),
+		IsActive:  true,
 	}
 
 	err = petRepo.Create(ctx, pet)
@@ -158,28 +146,21 @@ func TestDB_ConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < numPets; i++ {
 		go func(index int) {
-			petID := "test-pet-concurrent-" + string(rune(index))
+			petID := uuid.New()
 			pet := &db.Pet{
 				ID:     petID,
-				UserID: "test-user-concurrent",
+				UserID: uuid.New(),
 				Name:   "Concurrent Pet",
 				Stage:  "alive",
-				Stats: db.PetStats{
-					Hunger: 50,
-					Mood:   50,
-					Energy: 50,
-					Health: 50,
-				},
-				Genetics: db.PetGenetics{
-					BaseHungerRate: 1.0,
-					BaseMoodRate:   1.0,
-					BaseEnergyRate: 1.0,
-					GrowthSpeed:    1.0,
-					Personality:    "playful",
-				},
+				Hunger: 50,
+				Mood:   50,
+				Energy: 50,
+				Health: 50,
+				Genetics: json.RawMessage(`{"personality": "playful"}`),
 				DayAge:    0,
 				BornAt:    time.Now(),
 				UpdatedAt: time.Now(),
+				IsActive:  true,
 			}
 
 			err := petRepo.Create(ctx, pet)
@@ -203,28 +184,21 @@ func TestDB_DataConsistency(t *testing.T) {
 	petRepo := db.NewPetRepository(pool)
 
 	// Create pet
-	petID := "test-pet-consistency-123"
+	petID := uuid.New()
 	pet := &db.Pet{
 		ID:     petID,
-		UserID: "test-user-consistency",
+		UserID: uuid.New(),
 		Name:   "Consistency Pet",
 		Stage:  "alive",
-		Stats: db.PetStats{
-			Hunger: 75,
-			Mood:   80,
-			Energy: 85,
-			Health: 90,
-		},
-		Genetics: db.PetGenetics{
-			BaseHungerRate: 1.0,
-			BaseMoodRate:   1.0,
-			BaseEnergyRate: 1.0,
-			GrowthSpeed:    1.0,
-			Personality:    "playful",
-		},
+		Hunger: 75,
+		Mood:   80,
+		Energy: 85,
+		Health: 90,
+		Genetics: json.RawMessage(`{"personality": "playful"}`),
 		DayAge:    5,
 		BornAt:    time.Now(),
 		UpdatedAt: time.Now(),
+		IsActive:  true,
 	}
 
 	err := petRepo.Create(ctx, pet)
@@ -234,10 +208,10 @@ func TestDB_DataConsistency(t *testing.T) {
 	retrievedPet, err := petRepo.GetByID(ctx, petID)
 	tests.AssertNil(t, err, "Pet retrieval should succeed")
 
-	tests.AssertEqual(t, pet.Stats.Hunger, retrievedPet.Stats.Hunger, "Hunger should match")
-	tests.AssertEqual(t, pet.Stats.Mood, retrievedPet.Stats.Mood, "Mood should match")
-	tests.AssertEqual(t, pet.Stats.Energy, retrievedPet.Stats.Energy, "Energy should match")
-	tests.AssertEqual(t, pet.Stats.Health, retrievedPet.Stats.Health, "Health should match")
+	tests.AssertEqual(t, pet.Hunger, retrievedPet.Hunger, "Hunger should match")
+	tests.AssertEqual(t, pet.Mood, retrievedPet.Mood, "Mood should match")
+	tests.AssertEqual(t, pet.Energy, retrievedPet.Energy, "Energy should match")
+	tests.AssertEqual(t, pet.Health, retrievedPet.Health, "Health should match")
 	tests.AssertEqual(t, pet.DayAge, retrievedPet.DayAge, "Day age should match")
 
 	// Cleanup

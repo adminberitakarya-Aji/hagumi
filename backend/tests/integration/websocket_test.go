@@ -11,10 +11,7 @@ import (
  
 	"github.com/gorilla/websocket"
 	"github.com/hagumi/game-loop/auth"
-	"github.com/hagumi/game-loop/config"
-	"github.com/hagumi/game-loop/db"
 	"github.com/hagumi/game-loop/tests"
-	"github.com/hagumi/game-loop/validation"
 )
 
 // TestWebSocket_Connection tests WebSocket connection
@@ -103,7 +100,9 @@ func TestWebSocket_Authentication(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	// Connect with valid token
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	header := http.Header{}
+	header.Add("Authorization", "Bearer "+token)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
 	if err != nil {
 		t.Fatalf("Failed to connect with valid token: %v", err)
 	}

@@ -3,7 +3,6 @@ package economy
 import (
 	"context"
 	"log"
-	"math/rand"
 	"time"
 
 	"github.com/hagumi/game-loop/db"

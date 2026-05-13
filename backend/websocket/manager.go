@@ -1,15 +1,12 @@
 package ws
 
 import (
-	"context"
-	"encoding/json"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/hagumi/game-loop/config"
-	"github.com/hagumi/game-loop/errors"
 )
 
 // Client represents a connected WebSocket user

@@ -1,14 +1,10 @@
 package errors
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"runtime/debug"
-	"strings"
-	"time"
 	
 	"github.com/hagumi/game-loop/logging"
 )
@@ -173,7 +169,7 @@ func (h *ErrorHandler) LogPanic(err interface{}, r *http.Request) {
 	}
 
 	// Log panic with context
-	h.logger.ErrorWithFields(err, map[string]interface{}{
+	h.logger.ErrorWithFields(fmt.Errorf("%v", err), map[string]interface{}{
 		"request_id": requestID,
 		"user_id":    userID,
 		"method":     getMethod(r),
