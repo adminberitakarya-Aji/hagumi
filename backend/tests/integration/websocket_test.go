@@ -256,7 +256,16 @@ func TestWebSocket_StateSynchronization(t *testing.T) {
 		}
 		defer conn.Close()
 
-		// Send periodic state updates
+		// Send periodic state updates in a separate goroutine
+		go func() {
+			for {
+				_, _, err := conn.ReadMessage()
+				if err != nil {
+					return
+				}
+			}
+		}()
+
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 
@@ -275,10 +284,7 @@ func TestWebSocket_StateSynchronization(t *testing.T) {
 						},
 					},
 				}
-				conn.WriteJSON(stateUpdate)
-			default:
-				_, _, err := conn.ReadMessage()
-				if err != nil {
+				if err := conn.WriteJSON(stateUpdate); err != nil {
 					return
 				}
 			}
@@ -295,23 +301,22 @@ func TestWebSocket_StateSynchronization(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// Read state updates
+	// Read state updates with a deadline
 	updateCount := 0
-	timeout := time.After(1 * time.Second)
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 
 	for {
-		select {
-		case <-timeout:
-			tests.AssertTrue(t, updateCount > 0, "Should receive at least one state update")
-			return
-		default:
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				return
-			}
-			updateCount++
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		updateCount++
+		if updateCount >= 3 { // Get a few updates and then stop
+			break
 		}
 	}
+
+	tests.AssertTrue(t, updateCount > 0, "Should receive at least one state update")
 }
 
 // TestWebSocket_ErrorHandling tests WebSocket error handling
