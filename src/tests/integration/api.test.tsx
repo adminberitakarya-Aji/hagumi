@@ -1,86 +1,73 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 describe('API Integration Tests', () => {
+  const originalWebSocket = global.WebSocket;
+
   beforeEach(() => {
     // Setup before each test
   });
 
   afterEach(() => {
-    // Cleanup after each test
+    global.WebSocket = originalWebSocket;
+    jest.clearAllMocks();
   });
+
+  const createMockWS = (mockOverrides = {}) => {
+    const mockWS = {
+      readyState: 1, // OPEN
+      send: jest.fn(),
+      close: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      ...mockOverrides
+    };
+    
+    const MockWebSocket = jest.fn(() => mockWS) as any;
+    MockWebSocket.CONNECTING = 0;
+    MockWebSocket.OPEN = 1;
+    MockWebSocket.CLOSING = 2;
+    MockWebSocket.CLOSED = 3;
+    
+    global.WebSocket = MockWebSocket;
+    return { MockWebSocket, mockWS };
+  };
 
   describe('WebSocket Connection', () => {
     it('should establish WebSocket connection', async () => {
-      // Mock WebSocket connection
-      const mockWebSocket = {
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-      };
-
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
+      const { MockWebSocket, mockWS } = createMockWS({ readyState: 1 });
 
       // Test connection
       const ws = new WebSocket('ws://localhost:3001/ws');
       
-      expect(global.WebSocket).toHaveBeenCalledWith('ws://localhost:3001/ws');
-      expect(ws.readyState).toBe(WebSocket.OPEN);
+      expect(MockWebSocket).toHaveBeenCalledWith('ws://localhost:3001/ws');
+      expect(ws.readyState).toBe(MockWebSocket.OPEN);
     });
 
     it('should handle WebSocket messages', async () => {
-      const mockWebSocket = {
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn((event: string, callback: EventListenerOrEventListenerObject) => {
-          if (event === 'open' && typeof callback === 'function') {
-            (callback as EventListener)(new Event('open'));
-          }
-        }),
-        removeEventListener: jest.fn(),
-      };
+      const { mockWS } = createMockWS();
 
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
-
-      new WebSocket('ws://localhost:3001/ws');
+      const ws = new WebSocket('ws://localhost:3001/ws');
+      const onOpen = jest.fn();
+      ws.addEventListener('open', onOpen);
       
-      expect(mockWebSocket.addEventListener).toHaveBeenCalledWith('open', expect.any(Function));
+      expect(mockWS.addEventListener).toHaveBeenCalledWith('open', onOpen);
     });
 
     it('should handle WebSocket errors', async () => {
-      const mockWebSocket = {
-        readyState: WebSocket.CLOSED,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn((event: string, callback: EventListenerOrEventListenerObject) => {
-          if (event === 'error' && typeof callback === 'function') {
-            (callback as EventListener)(new Event('error'));
-          }
-        }),
-        removeEventListener: jest.fn(),
-      };
+      const { MockWebSocket, mockWS } = createMockWS({ readyState: 3 });
 
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
-
-      new WebSocket('ws://localhost:3001/ws');
+      const ws = new WebSocket('ws://localhost:3001/ws');
+      const onError = jest.fn();
+      ws.addEventListener('error', onError);
       
-      expect(mockWebSocket.addEventListener).toHaveBeenCalledWith('error', expect.any(Function));
+      expect(mockWS.addEventListener).toHaveBeenCalledWith('error', onError);
+      expect(ws.readyState).toBe(MockWebSocket.CLOSED);
     });
   });
 
   describe('Pet Actions', () => {
     it('should send pet action via WebSocket', async () => {
-      const mockWebSocket = {
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-      };
-
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
+      const { mockWS } = createMockWS();
 
       const ws = new WebSocket('ws://localhost:3001/ws');
       
@@ -94,89 +81,62 @@ describe('API Integration Tests', () => {
 
       ws.send(JSON.stringify(action));
 
-      expect(mockWebSocket.send).toHaveBeenCalledWith(JSON.stringify(action));
+      expect(mockWS.send).toHaveBeenCalledWith(JSON.stringify(action));
     });
 
     it('should handle action response', async () => {
-      let messageHandler: (event: { data: string }) => void = () => {};
-      
-      const mockWebSocket = {
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn((event: string, callback: EventListenerOrEventListenerObject) => {
-          if (event === 'message') {
-            messageHandler = callback as unknown as ((event: { data: string }) => void);
-          }
-        }),
-        removeEventListener: jest.fn(),
-      };
+      let messageHandler: any;
+      const { mockWS } = createMockWS({
+        addEventListener: jest.fn((event: string, callback: any) => {
+          if (event === 'message') messageHandler = callback;
+        })
+      });
 
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
-
-      new WebSocket('ws://localhost:3001/ws');
+      const ws = new WebSocket('ws://localhost:3001/ws');
+      const onMessage = jest.fn();
+      ws.addEventListener('message', onMessage);
       
       // Simulate receiving a message
       const response = {
         type: 'pet:state_update',
         payload: {
           petId: 'pet-123',
-          stats: {
-            hunger: 90,
-            mood: 80,
-            energy: 85,
-            health: 100,
-          },
+          stats: { hunger: 90, mood: 80, energy: 85, health: 100 },
         },
       };
 
-      messageHandler({ data: JSON.stringify(response) });
+      if (messageHandler) {
+        messageHandler({ data: JSON.stringify(response) });
+      }
 
-      expect(mockWebSocket.addEventListener).toHaveBeenCalledWith('message', expect.any(Function));
+      expect(mockWS.addEventListener).toHaveBeenCalledWith('message', onMessage);
+      expect(onMessage).toHaveBeenCalled();
     });
   });
 
   describe('Error Handling', () => {
     it('should handle API errors gracefully', async () => {
-      const mockWebSocket = {
-        readyState: WebSocket.CLOSED,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn((event: string, callback: EventListenerOrEventListenerObject) => {
-          if (event === 'error' && typeof callback === 'function') {
-            (callback as EventListener)(new Event('error'));
-          }
-        }),
-        removeEventListener: jest.fn(),
-      };
-
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
+      const { MockWebSocket, mockWS } = createMockWS({ readyState: 3 });
 
       const ws = new WebSocket('ws://localhost:3001/ws');
-      
-      expect(ws.readyState).toBe(WebSocket.CLOSED);
+      expect(ws.readyState).toBe(MockWebSocket.CLOSED);
     });
 
     it('should retry failed connections', async () => {
       let connectionAttempts = 0;
+      const mockWS = { readyState: 1 };
       
-      const mockWebSocket = {
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-      };
-
-      global.WebSocket = jest.fn(() => {
+      const MockWebSocket = jest.fn(() => {
         connectionAttempts++;
-        return mockWebSocket;
-      }) as unknown as typeof WebSocket;
+        return mockWS;
+      }) as any;
+      MockWebSocket.OPEN = 1;
+      global.WebSocket = MockWebSocket;
 
       // Simulate retry logic
       for (let i = 0; i < 3; i++) {
         const ws = new WebSocket('ws://localhost:3001/ws');
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState === MockWebSocket.OPEN) {
           break;
         }
       }
@@ -187,39 +147,17 @@ describe('API Integration Tests', () => {
 
   describe('Loading States', () => {
     it('should show loading state during connection', async () => {
-      const mockWebSocket = {
-        readyState: WebSocket.CONNECTING,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-      };
-
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
+      const { MockWebSocket } = createMockWS({ readyState: 0 });
 
       const ws = new WebSocket('ws://localhost:3001/ws');
-      
-      expect(ws.readyState).toBe(WebSocket.CONNECTING);
+      expect(ws.readyState).toBe(MockWebSocket.CONNECTING);
     });
 
     it('should hide loading state after connection', async () => {
-      const mockWebSocket = {
-        readyState: WebSocket.OPEN,
-        send: jest.fn(),
-        close: jest.fn(),
-        addEventListener: jest.fn((event: string, callback: EventListenerOrEventListenerObject) => {
-          if (event === 'open' && typeof callback === 'function') {
-            (callback as EventListener)(new Event('open'));
-          }
-        }),
-        removeEventListener: jest.fn(),
-      };
-
-      global.WebSocket = jest.fn(() => mockWebSocket) as unknown as typeof WebSocket;
+      const { MockWebSocket } = createMockWS({ readyState: 1 });
 
       const ws = new WebSocket('ws://localhost:3001/ws');
-      
-      expect(ws.readyState).toBe(WebSocket.OPEN);
+      expect(ws.readyState).toBe(MockWebSocket.OPEN);
     });
   });
-});
+});
