@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 // Pet represents a pet in the database
@@ -31,17 +31,17 @@ type Pet struct {
 
 // PetRepository handles pet database operations
 type PetRepository struct {
-	pool *pgxpool.Pool
+	db DBTX
 }
 
 // NewPetRepository creates a new pet repository
-func NewPetRepository(pool *pgxpool.Pool) *PetRepository {
-	return &PetRepository{pool: pool}
+func NewPetRepository(db DBTX) *PetRepository {
+	return &PetRepository{db: db}
 }
 
-// GetPool returns the database pool
-func (r *PetRepository) GetPool() *pgxpool.Pool {
-	return r.pool
+// WithTx returns a new repository that uses the provided transaction
+func (r *PetRepository) WithTx(tx pgx.Tx) *PetRepository {
+	return &PetRepository{db: tx}
 }
 
 
@@ -51,11 +51,21 @@ func (r *PetRepository) Create(ctx context.Context, pet *Pet) error {
 		INSERT INTO pets (
 			id, user_id, name, stage, hunger, mood, energy, health,
 			complex_genetics, ai_state, day_age, born_at, is_active
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13)
 		RETURNING id, born_at, updated_at
 	`
 
-	err := r.pool.QueryRow(ctx, query,
+	// Ensure valid JSON strings for the database
+	geneticsStr := "{}"
+	if len(pet.Genetics) > 0 {
+		geneticsStr = string(pet.Genetics)
+	}
+	aiStateStr := "{}"
+	if len(pet.AIState) > 0 {
+		aiStateStr = string(pet.AIState)
+	}
+
+	err := r.db.QueryRow(ctx, query,
 		pet.ID,
 		pet.UserID,
 		pet.Name,
@@ -64,8 +74,8 @@ func (r *PetRepository) Create(ctx context.Context, pet *Pet) error {
 		pet.Mood,
 		pet.Energy,
 		pet.Health,
-		pet.Genetics,
-		pet.AIState,
+		geneticsStr,
+		aiStateStr,
 		pet.DayAge,
 		pet.BornAt,
 		pet.IsActive,
@@ -89,7 +99,7 @@ func (r *PetRepository) GetByID(ctx context.Context, id uuid.UUID) (*Pet, error)
 	`
 
 	pet := &Pet{}
-	err := r.pool.QueryRow(ctx, query, id).Scan(
+	err := r.db.QueryRow(ctx, query, id).Scan(
 		&pet.ID,
 		&pet.UserID,
 		&pet.Name,
@@ -123,7 +133,7 @@ func (r *PetRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]*P
 		ORDER BY born_at DESC
 	`
 
-	rows, err := r.pool.Query(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pets: %w", err)
 	}
@@ -168,14 +178,24 @@ func (r *PetRepository) Update(ctx context.Context, pet *Pet) error {
 			energy = $6,
 			health = $7,
 			day_age = $8,
-			complex_genetics = $9,
-			ai_state = $10,
+			complex_genetics = $9::jsonb,
+			ai_state = $10::jsonb,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND is_active = true
 		RETURNING updated_at
 	`
 
-	err := r.pool.QueryRow(ctx, query,
+	// Ensure valid JSON strings for the database
+	geneticsStr := "{}"
+	if len(pet.Genetics) > 0 {
+		geneticsStr = string(pet.Genetics)
+	}
+	aiStateStr := "{}"
+	if len(pet.AIState) > 0 {
+		aiStateStr = string(pet.AIState)
+	}
+
+	err := r.db.QueryRow(ctx, query,
 		pet.ID,
 		pet.Name,
 		pet.Stage,
@@ -184,8 +204,8 @@ func (r *PetRepository) Update(ctx context.Context, pet *Pet) error {
 		pet.Energy,
 		pet.Health,
 		pet.DayAge,
-		pet.Genetics,
-		pet.AIState,
+		geneticsStr,
+		aiStateStr,
 	).Scan(&pet.UpdatedAt)
 
 	if err != nil {
@@ -208,7 +228,7 @@ func (r *PetRepository) UpdateStats(ctx context.Context, id uuid.UUID, hunger, m
 		WHERE id = $1 AND is_active = true
 	`
 
-	result, err := r.pool.Exec(ctx, query, id, hunger, mood, energy, health)
+	result, err := r.db.Exec(ctx, query, id, hunger, mood, energy, health)
 	if err != nil {
 		return fmt.Errorf("failed to update pet stats: %w", err)
 	}
@@ -229,7 +249,7 @@ func (r *PetRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		WHERE id = $1
 	`
 
-	result, err := r.pool.Exec(ctx, query, id)
+	result, err := r.db.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete pet: %w", err)
 	}
@@ -246,7 +266,7 @@ func (r *PetRepository) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *PetRepository) HardDelete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM pets WHERE id = $1`
 
-	result, err := r.pool.Exec(ctx, query, id)
+	result, err := r.db.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to hard delete pet: %w", err)
 	}
@@ -270,7 +290,7 @@ func (r *PetRepository) GetAll(ctx context.Context) ([]*Pet, error) {
 		LIMIT 1000
 	`
 
-	rows, err := r.pool.Query(ctx, query)
+	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all pets: %w", err)
 	}
@@ -309,7 +329,7 @@ func (r *PetRepository) Count(ctx context.Context, userID uuid.UUID) (int, error
 	query := `SELECT COUNT(*) FROM pets WHERE user_id = $1 AND is_active = true`
 
 	var count int
-	err := r.pool.QueryRow(ctx, query, userID).Scan(&count)
+	err := r.db.QueryRow(ctx, query, userID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count pets: %w", err)
 	}
@@ -322,7 +342,7 @@ func (r *PetRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) 
 	query := `SELECT EXISTS(SELECT 1 FROM pets WHERE id = $1 AND is_active = true)`
 
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, id).Scan(&exists)
+	err := r.db.QueryRow(ctx, query, id).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check pet existence: %w", err)
 	}

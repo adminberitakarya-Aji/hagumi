@@ -101,7 +101,9 @@ func TestDB_Transaction(t *testing.T) {
 	// Begin transaction
 	tx, err := pool.Begin(ctx)
 	tests.AssertNil(t, err, "Transaction begin should succeed")
-	defer tx.Rollback(ctx)
+
+	// Use the transaction in the repository
+	txPetRepo := petRepo.WithTx(tx)
 
 	// Create pet in transaction
 	userID, err := tests.CreateTestUser(ctx)
@@ -124,7 +126,7 @@ func TestDB_Transaction(t *testing.T) {
 		IsActive:  true,
 	}
 
-	err = petRepo.Create(ctx, pet)
+	err = txPetRepo.Create(ctx, pet)
 	tests.AssertNil(t, err, "Pet creation in transaction should succeed")
 
 	// Rollback transaction

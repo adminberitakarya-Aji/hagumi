@@ -7,8 +7,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// DBTX is an interface that matches both *pgxpool.Pool and pgx.Tx
+type DBTX interface {
+	Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...interface{}) pgx.Row
+}
 
 // DBConfig holds database configuration
 type DBConfig struct {
@@ -18,6 +27,7 @@ type DBConfig struct {
 	Password string
 	Database string
 	SSLMode  string
+	URL      string // Optional: Full connection URL
 }
 
 // DefaultDBConfig returns default database configuration
@@ -39,15 +49,18 @@ type Database struct {
 
 // NewDatabase creates a new database connection pool
 func NewDatabase(config *DBConfig) (*Database, error) {
-	connString := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		config.Host,
-		config.Port,
-		config.User,
-		config.Password,
-		config.Database,
-		config.SSLMode,
-	)
+	connString := config.URL
+	if connString == "" {
+		connString = fmt.Sprintf(
+			"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			config.Host,
+			config.Port,
+			config.User,
+			config.Password,
+			config.Database,
+			config.SSLMode,
+		)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
