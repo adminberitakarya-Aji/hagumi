@@ -216,31 +216,41 @@ func TestWebSocket_ConcurrentConnections(t *testing.T) {
 	// Create multiple concurrent connections
 	numConnections := 10
 	connections := make([]*websocket.Conn, numConnections)
-	done := make(chan bool, numConnections)
+	done := make(chan error, numConnections)
 
 	for i := 0; i < numConnections; i++ {
 		go func(index int) {
 			conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 			if err != nil {
-				t.Errorf("Connection %d failed: %v", index, err)
-				done <- false
+				done <- err
 				return
 			}
 			connections[index] = conn
-			defer conn.Close()
-			done <- true
+			// Keep connection open until we're done
+			done <- nil
 		}(i)
 	}
 
-	// Wait for all connections
-	successCount := 0
+	// Wait for all connections and collect errors
+	var connectionErrors []error
 	for i := 0; i < numConnections; i++ {
-		if <-done {
-			successCount++
+		if err := <-done; err != nil {
+			connectionErrors = append(connectionErrors, err)
 		}
 	}
 
-	tests.AssertEqual(t, successCount, numConnections, "All connections should succeed")
+	// Close all connections
+	for _, conn := range connections {
+		if conn != nil {
+			conn.Close()
+		}
+	}
+
+	for _, err := range connectionErrors {
+		t.Errorf("Connection failed: %v", err)
+	}
+
+	tests.AssertEqual(t, len(connectionErrors), 0, "All connections should succeed")
 }
 
 // TestWebSocket_StateSynchronization tests state synchronization
@@ -256,11 +266,16 @@ func TestWebSocket_StateSynchronization(t *testing.T) {
 		}
 		defer conn.Close()
 
+		// Use a context to signal when the connection is closed
+		ctx, cancelFunc := context.WithCancel(r.Context())
+		defer cancelFunc()
+
 		// Send periodic state updates in a separate goroutine
 		go func() {
 			for {
 				_, _, err := conn.ReadMessage()
 				if err != nil {
+					cancelFunc()
 					return
 				}
 			}
@@ -287,6 +302,8 @@ func TestWebSocket_StateSynchronization(t *testing.T) {
 				if err := conn.WriteJSON(stateUpdate); err != nil {
 					return
 				}
+			case <-ctx.Done():
+				return
 			}
 		}
 	}))

@@ -146,12 +146,15 @@ func TestDB_ConcurrentAccess(t *testing.T) {
 
 	// Create multiple pets concurrently
 	numPets := 10
-	done := make(chan bool, numPets)
+	errChan := make(chan error, numPets)
 
 	for i := 0; i < numPets; i++ {
-		go func(index int) {
+		go func() {
 			userID, err := tests.CreateTestUser(ctx)
-			tests.AssertNil(t, err, "User creation should succeed")
+			if err != nil {
+				errChan <- err
+				return
+			}
 			
 			petID := uuid.New()
 			pet := &db.Pet{
@@ -171,15 +174,23 @@ func TestDB_ConcurrentAccess(t *testing.T) {
 			}
 
 			err = petRepo.Create(ctx, pet)
-			tests.AssertNil(t, err, "Concurrent pet creation should succeed")
-			done <- true
-		}(i)
+			errChan <- err
+		}()
 	}
 
-	// Wait for all operations to complete
+	// Wait for all operations to complete and collect errors
+	var errors []error
 	for i := 0; i < numPets; i++ {
-		<-done
+		if err := <-errChan; err != nil {
+			errors = append(errors, err)
+		}
 	}
+
+	for _, err := range errors {
+		t.Errorf("Concurrent operation failed: %v", err)
+	}
+
+	tests.AssertEqual(t, len(errors), 0, "All concurrent operations should succeed")
 }
 
 // TestDB_DataConsistency tests data consistency
