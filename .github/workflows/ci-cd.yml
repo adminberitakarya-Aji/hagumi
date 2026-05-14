@@ -104,5 +104,5 @@ jobs:
 
       - name: Build Backend Image
         run: |
-          docker build -t hagumi-backend:latest .
+          docker build -t hagumi-backend:latest ./backend
         # Note: In production, you would push to a registry (GHCR/DockerHub)
