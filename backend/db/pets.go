@@ -44,6 +44,11 @@ func (r *PetRepository) WithTx(tx pgx.Tx) *PetRepository {
 	return &PetRepository{db: tx}
 }
 
+// GetPool returns the underlying database connection or transaction
+func (r *PetRepository) GetPool() DBTX {
+	return r.db
+}
+
 
 // Create creates a new pet in the database
 func (r *PetRepository) Create(ctx context.Context, pet *Pet) error {
