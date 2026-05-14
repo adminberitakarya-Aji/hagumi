@@ -22,19 +22,24 @@ describe('API Integration Tests', () => {
       ...mockOverrides
     };
     
-    const MockWebSocket = jest.fn(() => mockWS) as any;
+    const MockWebSocket = jest.fn(() => mockWS) as unknown as typeof WebSocket & {
+      CONNECTING: number;
+      OPEN: number;
+      CLOSING: number;
+      CLOSED: number;
+    };
     MockWebSocket.CONNECTING = 0;
     MockWebSocket.OPEN = 1;
     MockWebSocket.CLOSING = 2;
     MockWebSocket.CLOSED = 3;
     
-    global.WebSocket = MockWebSocket;
+    global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
     return { MockWebSocket, mockWS };
   };
 
   describe('WebSocket Connection', () => {
     it('should establish WebSocket connection', async () => {
-      const { MockWebSocket, mockWS } = createMockWS({ readyState: 1 });
+      const { MockWebSocket } = createMockWS({ readyState: 1 });
 
       // Test connection
       const ws = new WebSocket('ws://localhost:3001/ws');
@@ -85,9 +90,9 @@ describe('API Integration Tests', () => {
     });
 
     it('should handle action response', async () => {
-      let messageHandler: any;
+      let messageHandler: ((event: { data: string }) => void) | undefined;
       const { mockWS } = createMockWS({
-        addEventListener: jest.fn((event: string, callback: any) => {
+        addEventListener: jest.fn((event: string, callback: (event: { data: string }) => void) => {
           if (event === 'message') messageHandler = callback;
         })
       });
@@ -116,7 +121,7 @@ describe('API Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle API errors gracefully', async () => {
-      const { MockWebSocket, mockWS } = createMockWS({ readyState: 3 });
+      const { MockWebSocket } = createMockWS({ readyState: 3 });
 
       const ws = new WebSocket('ws://localhost:3001/ws');
       expect(ws.readyState).toBe(MockWebSocket.CLOSED);
@@ -129,9 +134,9 @@ describe('API Integration Tests', () => {
       const MockWebSocket = jest.fn(() => {
         connectionAttempts++;
         return mockWS;
-      }) as any;
+      }) as unknown as typeof WebSocket & { OPEN: number };
       MockWebSocket.OPEN = 1;
-      global.WebSocket = MockWebSocket;
+      global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
       // Simulate retry logic
       for (let i = 0; i < 3; i++) {
